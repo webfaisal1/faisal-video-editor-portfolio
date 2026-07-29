@@ -1,0 +1,1146 @@
+/* Google fonts (exact families the design tokens reference). @import must stay first. */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================================================================================
+   PORTED DESIGN SYSTEM
+   The entire original <style> block from the single-file build, verbatim, so the migrated
+   site is visually byte-identical. Tailwind layers sit above; nothing here is auto-generated.
+   ========================================================================================= */
+
+/* =========================================================
+   DESIGN SYSTEM / TOKENS
+   ========================================================= */
+/* =========================================================
+   REBRAND: Charcoal + Emerald (replaces the previous electric-lime dark theme).
+   Every color in this file routes through these tokens (Tailwind config also just aliases
+   them), so this block is the single source of truth for the palette swap. The only literal
+   hex/rgb values left in the stylesheet are decompositions of these same tokens into rgba()
+   for glow/gradient alpha blending (search for "46,111,82", the emerald rgb triplet).
+   - --bg / --bg-2: near-black and charcoal darkest surfaces
+   - --surface / --surface-2: charcoal card surfaces
+   - --accent: primary emerald (buttons, active states, CTAs)
+   - --accent-bright: a lighter/more saturated emerald used only for glows and hover highlights,
+     since the base emerald is too dark/desaturated on its own to read as a glow
+   - --accent-ink: text color on accent-colored surfaces (near-white, emerald is too dark for
+     the old dark-ink-on-lime approach)
+   - --sage: soft sage, used sparingly for light-touch contrast accents
+   ========================================================= */
+:root{
+  --bg:#0f0f0f;
+  --bg-2:#151515;
+  --surface:#1a1a1a;
+  --surface-2:#202020;
+  --line:rgba(255,255,255,.08);
+  --line-2:rgba(255,255,255,.15);
+  --text:#f3f5f3;
+  --muted:#98a398;
+  --muted-2:#676f67;
+  --accent:#2e6f52;             /* emerald */
+  --accent-bright:#3fa37a;      /* brighter emerald, glows/hover only */
+  --accent-ink:#f3f5f3;
+  --sage:#d8e3d9;
+  --radius:18px;
+  --radius-lg:26px;
+  --maxw:1240px;
+  --ease:cubic-bezier(.16,1,.3,1);
+  --font-display:"Space Grotesk", system-ui, sans-serif;
+  --font-body:"Inter", system-ui, -apple-system, sans-serif;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}  /* smooth scroll handled by Lenis */
+body{
+  font-family:var(--font-body);
+  background:var(--bg);
+  color:var(--text);
+  line-height:1.5;
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:inherit;text-decoration:none}
+img{max-width:100%;display:block}
+::selection{background:var(--accent);color:var(--accent-ink)}
+
+/* Cursor dot + streak (CursorTrail.tsx). Exactly two elements, not a cluster of stacked dots:
+   a small bright core that tracks the pointer almost instantly, and one thin elongated streak
+   behind it whose length/angle/opacity CursorTrail.tsx recomputes from the pointer's actual
+   velocity on every mousemove (long and visible while moving fast, short and faint while
+   moving slowly or idle). The streak's own linear-gradient fades from solid at the dot end to
+   transparent at its tail, so it reads as one continuous tapering trail rather than several
+   overlapping blurred circles. Smoothing is compositor-driven (plain CSS transitions),
+   deliberately not a JS rAF/ticker loop: this project's rAF loop can stall independently of
+   input (see the SmoothScroll/Lenis notes), which is what silently killed an earlier
+   GSAP-driven cursor attempt. Pointer-events:none throughout. */
+.cursor-trail{position:fixed;top:0;left:0;z-index:200;pointer-events:none;opacity:0;transition:opacity .5s ease}
+.cursor-dot{position:fixed;top:0;left:0;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;
+  pointer-events:none;background:rgba(63,163,122,.9);transition:transform .08s linear}
+.cursor-streak{position:fixed;top:0;left:0;height:2px;width:0;margin-top:-1px;border-radius:2px;
+  pointer-events:none;transform-origin:0 50%;
+  background:linear-gradient(90deg,rgba(63,163,122,.55),transparent);
+  transition:transform .12s ease-out,width .12s ease-out}
+@media (max-width:768px),(hover:none),(prefers-reduced-motion:reduce){.cursor-trail{display:none}}
+
+/* Vertical edge accent: a thin soft-glowing emerald line fixed along the right edge of the
+   viewport, breathing between low and slightly-less-low opacity. Built from scratch as a pure
+   CSS gradient + keyframe animation, not a scroll indicator or JS-driven element, so it needs
+   no mount logic and cannot silently fail to render the way a JS-animated effect can. */
+.edge-accent{position:fixed;top:0;right:0;height:100vh;width:3px;z-index:150;pointer-events:none;
+  background:linear-gradient(180deg,transparent 0%,rgba(63,163,122,.5) 20%,rgba(63,163,122,.7) 50%,rgba(63,163,122,.5) 80%,transparent 100%);
+  filter:blur(1.5px);box-shadow:0 0 16px 1px rgba(63,163,122,.35);
+  animation:edge-accent-pulse 4.5s ease-in-out infinite}
+@keyframes edge-accent-pulse{0%,100%{opacity:.45}50%{opacity:.9}}
+@media (max-width:768px){.edge-accent{display:none}}
+@media (prefers-reduced-motion:reduce){.edge-accent{animation:none;opacity:.6}}
+
+/* =========================================================
+   GLOBAL BACKGROUND GLOW
+   Ported from scalewithcam.com's real background layer (inspected via devtools: a fixed
+   full-viewport `.ambient` wash of 3 large, very-low-opacity radial-gradients, plus 3
+   individually fixed, blurred, slowly-floating `.orb` circles — purple/pink there). Same
+   structure and blur/opacity/animation values here, recolored to this site's own emerald
+   accent family (--accent / --accent-bright) instead of copying their purple/pink, and
+   repositioned to sit on the left and right edges as requested rather than their layout. */
+.bg-ambient{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(800px 600px at 90% -10%,rgba(63,163,122,.16) 0%,transparent 60%),
+    radial-gradient(600px 700px at -5% 30%,rgba(46,111,82,.14) 0%,transparent 65%),
+    radial-gradient(700px 700px at 105% 85%,rgba(63,163,122,.1) 0%,transparent 65%);
+}
+.orb{position:fixed;border-radius:50%;pointer-events:none;z-index:0;
+  filter:blur(50px);opacity:.35;will-change:transform}
+.orb-1{width:380px;height:380px;top:12%;left:-140px;
+  background:radial-gradient(circle,rgba(63,163,122,.9),transparent 70%);
+  animation:orb-float-1 24s ease-in-out infinite}
+.orb-2{width:460px;height:460px;top:58%;right:-170px;
+  background:radial-gradient(circle,rgba(46,111,82,.9),transparent 70%);
+  animation:orb-float-2 30s ease-in-out infinite}
+.orb-3{width:280px;height:280px;top:82%;left:-90px;
+  background:radial-gradient(circle,rgba(63,163,122,.75),transparent 70%);
+  animation:orb-float-3 26s ease-in-out infinite}
+@keyframes orb-float-1{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(70px,40px) scale(1.1)}66%{transform:translate(-25px,80px) scale(.95)}}
+@keyframes orb-float-2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-80px,-60px) scale(1.12)}}
+@keyframes orb-float-3{0%,100%{transform:translate(0,0) scale(1)}40%{transform:translate(50px,-45px) scale(1.05)}80%{transform:translate(-35px,25px) scale(.92)}}
+@media (max-width:768px){.orb-3{display:none}}
+@media (prefers-reduced-motion:reduce){.orb{animation:none}}
+
+
+.container{width:100%;max-width:var(--maxw);margin:0 auto;padding:0 26px}
+
+/* Reusable eyebrow / label */
+.eyebrow{
+  display:inline-flex;align-items:center;gap:9px;
+  font-family:var(--font-display);
+  font-size:12px;font-weight:500;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--muted);
+  padding:8px 16px;border-radius:100px;
+  background:rgba(255,255,255,.04);
+  backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%);
+  border:1px solid rgba(255,255,255,.1);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 8px 20px -14px rgba(0,0,0,.6);
+}
+.eyebrow::before{
+  content:"";width:7px;height:7px;border-radius:50%;
+  background:var(--accent);box-shadow:0 0 14px var(--accent);
+}
+
+/* Buttons.
+   PREMIUM PASS: hover states upgraded from a flat color-swap + lift to a soft emerald glow
+   (box-shadow) layered on top of the same lift, matching the "subtle glow on hover" language
+   used across the reference sites rather than a generic opacity/flat-color change. */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  font-family:var(--font-display);font-weight:600;font-size:15px;
+  padding:15px 26px;border-radius:100px;border:1px solid transparent;
+  cursor:pointer;transition:transform .5s var(--ease),background .3s,color .3s,border-color .3s,box-shadow .4s var(--ease);
+  white-space:nowrap;
+}
+.btn-primary{background:var(--accent);color:var(--accent-ink)}
+.btn-primary:hover{transform:translateY(-2px);background:var(--accent-bright);
+  box-shadow:0 8px 28px -6px rgba(63,163,122,.55)}
+.btn-ghost{background:rgba(255,255,255,.03);color:var(--text);border-color:var(--line-2);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.btn-ghost:hover{background:rgba(63,163,122,.08);border-color:var(--accent-bright);transform:translateY(-2px);
+  box-shadow:0 8px 24px -10px rgba(63,163,122,.35)}
+.btn svg{width:17px;height:17px}
+
+/* =========================================================
+   NAV
+   ========================================================= */
+.nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  opacity:0;pointer-events:none;                 /* reveal driven by GSAP ScrollTrigger */
+  background:var(--bg);
+  border-bottom:1px solid var(--line);
+  will-change:transform,opacity;
+}
+.nav-inner{
+  max-width:var(--maxw);margin:0 auto;padding:18px 26px;
+  display:flex;align-items:center;justify-content:space-between;gap:24px;
+}
+.brand{
+  font-family:var(--font-display);font-weight:700;font-size:19px;letter-spacing:-.01em;
+  display:flex;align-items:center;gap:10px;
+}
+.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 14px var(--accent)}
+.nav-links{display:flex;align-items:center;gap:34px}
+.nav-links a{
+  font-size:14.5px;color:var(--muted);font-weight:500;transition:color .25s;position:relative;
+}
+/* Premium nav-link hover: a thin emerald underline grows from center rather than a flat
+   color-only swap. */
+.nav-links a::after{content:"";position:absolute;left:50%;bottom:-6px;width:0;height:1.5px;
+  background:var(--accent-bright);transform:translateX(-50%);transition:width .3s var(--ease)}
+.nav-links a:hover{color:var(--text)}
+.nav-links a:hover::after{width:100%}
+.nav-actions{display:flex;align-items:center;gap:14px}
+.nav-cta{padding:11px 20px;font-size:14px}
+
+.burger{display:none;flex-direction:column;gap:5px;background:none;border:0;cursor:pointer;padding:8px}
+.burger span{width:24px;height:2px;background:var(--text);border-radius:2px;transition:.3s var(--ease)}
+
+/* Mobile menu */
+.mobile-menu{
+  position:fixed;inset:0;z-index:99;background:rgba(6,6,7,.97);
+  backdrop-filter:blur(20px);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:8px;
+  opacity:0;pointer-events:none;transition:opacity .4s var(--ease);
+}
+.mobile-menu.open{opacity:1;pointer-events:auto}
+.mobile-menu a{
+  font-family:var(--font-display);font-size:30px;font-weight:600;color:var(--text);
+  padding:12px 0;opacity:.9;
+}
+.mobile-menu .btn{margin-top:22px}
+
+/* film grain (used on .dock-stage, see .dock-stage>.grain) */
+.grain{
+  position:absolute;inset:0;z-index:1;pointer-events:none;opacity:.03;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* reveal helper */
+.reveal{opacity:0;transform:translateY(26px);transition:opacity .9s var(--ease),transform .9s var(--ease)}
+.reveal.in{opacity:1;transform:none}
+.d1{transition-delay:.05s}.d2{transition-delay:.14s}.d3{transition-delay:.23s}.d4{transition-delay:.32s}.d5{transition-delay:.41s}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+@media (max-width:860px){
+  .nav-links{display:none}
+  .nav-actions .nav-cta{display:none}
+  .burger{display:flex}
+  /* RESPONSIVE FIX: touch target was 40x32px (padding 8px around three 24x2px bars), a bit
+     tight to tap comfortably. Bumped padding so the tappable box grows to roughly 48x42px;
+     the visible bars themselves are unchanged so the icon doesn't look bigger, just easier
+     to hit. Desktop untouched (burger isn't shown above 860px anyway). */
+  .burger{padding:12px;gap:6px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;scroll-behavior:auto!important}
+  .reveal{opacity:1;transform:none}
+}
+
+/* =========================================================
+   SECTION 2 — EDITOR TIMELINE MOCKUP
+   ========================================================= */
+.editor-sec{position:relative;padding:clamp(60px,9vw,110px) 0 90px;
+  background:var(--bg);}
+/* scroll hint shown during the docking intro, faded out by GSAP */
+.e-scrollhint{position:absolute;right:26px;bottom:26px;z-index:9;display:inline-flex;align-items:center;gap:9px;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:10.5px;letter-spacing:.18em;
+  color:var(--muted);border:1px solid var(--line-2);border-radius:100px;padding:9px 15px;
+  background:rgba(255,255,255,.03);backdrop-filter:blur(6px)}
+.e-scrollhint svg{width:12px;height:12px}
+@media (max-width:560px){.e-scrollhint{right:14px;bottom:14px}}
+
+/* ---- ONE-video docking stage (znaac: tall wrapper + position:sticky pin) ---- */
+/* Reserved scroll runway for the docking transition. .dock-stage itself is position:sticky and
+   only occupies its own 100svh in the document's normal flow, so any height here beyond that
+   renders as flat, empty .dock-wrap background in a static/full-page view (screenshots, or a
+   scroll-linked animation that never gets to run, e.g. because the tab's rAF loop stalled) not
+   just as unscrolled-past space during live interactive scrolling. Every other section-to-
+   section boundary on this site measures 0px (sections directly abut; their spacing is
+   internal padding, not a gap between them), so that is the bar this would ideally clear, but
+   the runway also has to stay long enough for setDock's scroll-scrubbed video resize (in
+   SmoothScroll.tsx) to read as a transition rather than a snap. Measured directly by manually
+   pumping Lenis (window.__lenis.raf()) across the runway at each candidate height and sampling
+   #dockVideo's width: 230vh (936px empty) was comfortably smooth but left a huge empty span;
+   105vh (36px empty) shrank the gap but let the video's width change up to ~44px per 1px of
+   scroll, easily finishing the whole transition inside a single mouse-wheel tick, which is the
+   "abrupt jump" regression. 130vh (216px empty) peaks at ~7.5px of width change per scroll
+   px, clearly smoother, and was kept over a tighter 118vh (130px empty, ~12.4px/px) since a
+   jarring animation is worse than a larger gap.
+   REVISED: 130vh's 30vh runway turned out to need two separate scroll gestures (trackpad
+   swipe / wheel notch) to fully clear on real hardware, unlike every other section-to-section
+   boundary on the site, which is a worse regression than the animation being a bit brisker.
+   Reverted to the 105vh figure this comment already measured and confirmed clears in a single
+   wheel tick, prioritizing "scrolls like every other section" per explicit direction over the
+   smoothness tradeoff above. */
+.dock-wrap{position:relative;height:105vh;background:var(--bg)}
+/* LAYOUT FIX: real measured nav height is 82px; padding-top was 84px (2px of slack) and the
+   editor's height budget only left 96-84=12px of bottom margin inside the pinned stage below
+   that. That razor-thin margin is what clipped the editor's bottom (the timeline lives there)
+   whenever real viewport height / svh behavior / nav height varied even slightly from the exact
+   numbers this was tuned against, reading as "timeline collides with navbar, needs another
+   scroll". Both margins now have real slack instead of single-digit pixels. */
+.dock-stage{position:sticky;top:0;height:100svh;overflow:hidden;display:flex;
+  align-items:flex-start;justify-content:center;padding-top:96px;   /* clear the fixed nav (82px measured) with real margin */
+  background:var(--bg)}
+.dock-stage>.grain{z-index:2;opacity:.04}
+.dock-stage>.container{position:relative;z-index:3;width:100%}
+/* AE editor window: fills the pinned viewport (minus nav clearance), fixed-height flex column */
+.dock-stage .editor{display:flex;flex-direction:column;width:100%;max-width:1180px;
+  height:calc(100svh - 132px);max-height:864px;
+  padding:0;overflow:hidden;border-radius:20px;border-color:transparent}
+/* THE single moving video box, one element, one continuous transform. top/left/width/height are
+   now set ONCE in JS to the video's real, native rest position (the slot it docks into); the
+   whole "docking" motion is a single transform (translate+scale) animated from an inverted state
+   back to identity, the standard FLIP technique. transform-origin must be the box's own top-left
+   corner so scale() alone never shifts it, only the translate does. Using transform instead of
+   animating top/left/width/height every frame also means this never triggers layout, only
+   compositing, so real (non-simulated) scroll no longer has to fight layout thrashing to look
+   smooth. */
+/* ROOT CAUSE of the Hero rendering solid black instead of the site's charcoal theme: this
+   fallback was hardcoded to pure #000, not var(--bg) (#0f0f0f). This box covers the entire
+   stage (z-index:4, full-bleed) until/unless the <video> inside it is actually painting over
+   it, so any gap in video coverage (slow network, autoplay blocked until interaction, or the
+   poster attribute pointing at an unreliable external Google Drive hotlink that can silently
+   fail) shows this fallback color full-viewport. #000 vs the theme's #0f0f0f is a small
+   difference in isolation, but at full-viewport size next to every other section's consistent
+   var(--bg), it reads as a distinctly different "solid black" block rather than the same
+   charcoal the rest of the site uses. */
+.dock-video{position:absolute;top:0;left:0;width:100%;height:100%;z-index:4;overflow:hidden;
+  transform-origin:0 0;background:var(--bg);will-change:transform,border-radius}
+.dock-video>video{width:100%;height:100%;object-fit:cover;display:block}
+/* reduced-motion / no-JS: collapse the extra scroll length, show docked editor statically */
+body.no-motion .dock-wrap{height:100svh}
+/* =========================================================
+   LIQUID GLASS PASS
+   Genuine Apple "liquid glass" needs 3 ingredients working together, per the reference set:
+   (1) colorful blurred light actually behind the glass for it to refract/bleed through — added
+   as .editor::before, a soft multi-hue glow using the site's existing timeline swatch colors
+   (teal/blue/purple) so it reads as part of this component's own palette, not a random insert;
+   (2) every panel surface turned genuinely translucent (backdrop-filter blur+saturate over a
+   low-opacity white wash, not a near-opaque tint) so that glow actually shows through them;
+   (3) a bright 1px top-edge highlight (inset box-shadow) on each glass surface, simulating the
+   light-refraction rim every panel in the reference images catches along its top edge. Pill/
+   rounded-square radii on buttons and chips throughout complete the look.
+   ========================================================= */
+.editor{
+  --e-line:rgba(255,255,255,.14);
+  --e-line-2:rgba(255,255,255,.26);
+  --e-txt:#e9edf5;
+  --e-muted:#8b93a8;
+  --e-amber:#f4c451;
+  --e-red:#e5352b;
+  --e-teal:#43d4bd;
+  --e-green:#5fd08a;
+  --e-purple:#9a86ff;
+  --e-blue:#5aa9ff;
+  --e-glass:rgba(255,255,255,.07);
+  --e-glass-hi:inset 0 1px 0 rgba(255,255,255,.3),inset 0 0 0 1px rgba(255,255,255,.05);
+  --e-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  position:relative;
+  margin:0 auto;
+  background:linear-gradient(180deg,#0e0f13,#08090c);
+  border:1px solid var(--e-line);
+  box-shadow:0 70px 160px -60px rgba(0,0,0,.9),0 1px 0 rgba(255,255,255,.08) inset,0 0 0 1px rgba(255,255,255,.03) inset;
+  font-family:var(--e-mono);color:var(--e-txt);
+}
+/* ROOT CAUSE of the navy/blue quadrant reported in the Hero: this glow originally used the AE
+   mockup's OWN internal timeline-swatch palette (teal/blue/purple, matching --e-teal/--e-blue/
+   --e-purple below) so it would read as "part of this component". That is a different goal from
+   the SITE's own charcoal+emerald identity, and the top-right gradient in particular
+   (rgba(90,169,255,.4), --e-blue) sits directly behind the menu bar/toolbar (positioned at 88% 6%,
+   i.e. the upper-right quadrant), showing through their glass blur as a distinctly navy/blue
+   area against everything else's emerald. All four stops are now the site's own --accent /
+   --accent-bright emerald (varied only in position/opacity for depth), so every quadrant of the
+   glow, and therefore of the glass panels reading it through backdrop-filter, is emerald. */
+.editor::before{
+  content:"";position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;overflow:hidden;
+  background:
+    radial-gradient(480px 360px at 12% -6%,rgba(63,163,122,.5),transparent 62%),
+    radial-gradient(420px 340px at 88% 6%,rgba(63,163,122,.4),transparent 60%),
+    radial-gradient(460px 380px at 55% 108%,rgba(46,111,82,.34),transparent 62%),
+    radial-gradient(360px 300px at 100% 100%,rgba(63,163,122,.3),transparent 60%);
+  filter:blur(6px);
+}
+.editor *{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.3) transparent}
+.editor ::-webkit-scrollbar{width:7px;height:7px}
+.editor ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.26);border-radius:4px}
+.editor ::-webkit-scrollbar-track{background:transparent}
+
+/* 1+2. menu bar + toolbar (the .e-top reveal group) */
+/* position:relative (z-index:auto) so this paints above .editor::before's absolutely-positioned
+   glow layer per normal stacking order (positioned descendants paint in DOM order among
+   themselves; without this, an unpositioned flex child would paint BEHIND a positioned ::before
+   despite coming later in the DOM). */
+.e-top{position:relative;display:flex;flex-direction:column;flex:none}
+.ae-menubar{display:flex;align-items:center;gap:14px;height:38px;padding:0 14px;
+  border-bottom:1px solid var(--e-line);
+  background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.03));
+  box-shadow:var(--e-glass-hi);
+  backdrop-filter:blur(28px) saturate(200%);-webkit-backdrop-filter:blur(28px) saturate(200%)}
+/* macOS-style window controls: a small, purely decorative touch that reads as "premium app
+   chrome" at a glance, matching the Apple-UI direction requested for this mockup. */
+.ae-traffic{display:flex;align-items:center;gap:7px;flex:none;margin-right:2px}
+.ae-traffic i{width:11px;height:11px;border-radius:50%;display:block}
+.ae-traffic .red{background:#ff5f57;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.ae-traffic .amber{background:#febc2e;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.ae-traffic .green{background:#28c840;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.ae-logo{display:flex;align-items:center;gap:8px;font-weight:700;font-size:11px;letter-spacing:.1em;color:var(--e-txt);flex:none}
+.ae-logo .mk{width:20px;height:20px;border-radius:7px;display:grid;place-items:center;font-size:9px;font-weight:700;
+  color:#dfe3ff;background:linear-gradient(135deg,rgba(150,140,255,.55),rgba(90,169,255,.35));
+  border:1px solid rgba(200,195,255,.5);box-shadow:var(--e-glass-hi)}
+.ae-menu{display:flex;align-items:center;gap:1px;min-width:0;overflow:hidden}
+.ae-menu span{font-size:11px;color:var(--e-muted);padding:3px 7px;border-radius:5px;white-space:nowrap;transition:.18s}
+.ae-menu span:hover{color:var(--e-txt);background:rgba(125,145,200,.1)}
+.ae-menubar .ae-tc{margin-left:auto;font-size:11px;letter-spacing:.1em;color:var(--e-muted);white-space:nowrap;flex:none}
+.ae-toolbar{display:flex;align-items:center;gap:4px;height:40px;padding:0 10px;
+  border-bottom:1px solid var(--e-line);
+  background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.015));
+  box-shadow:var(--e-glass-hi);
+  backdrop-filter:blur(28px) saturate(200%);-webkit-backdrop-filter:blur(28px) saturate(200%);overflow:hidden}
+.ae-tool{width:30px;height:28px;flex:none;display:grid;place-items:center;border-radius:11px;color:var(--e-muted);
+  border:1px solid transparent;background:none;transition:.16s}
+.ae-tool:hover{color:var(--e-txt);background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.04));
+  border-color:rgba(255,255,255,.18);box-shadow:var(--e-glass-hi)}
+.ae-tool.active{color:#fff;background:linear-gradient(180deg,rgba(63,163,122,.7),rgba(46,111,82,.55));
+  border-color:rgba(120,220,180,.5);box-shadow:var(--e-glass-hi),0 4px 14px -4px rgba(63,163,122,.6)}
+.ae-tool svg{width:14px;height:14px}
+.ae-toolsep{width:1px;height:18px;background:var(--e-line);margin:0 6px;flex:none}
+
+/* 3-5. BODY: project | composition | properties */
+.ae-body{position:relative;flex:1;display:flex;min-height:0}
+.ae-panel-h{display:flex;align-items:center;gap:6px;height:28px;flex:none;padding:0 10px;font-size:9.5px;letter-spacing:.14em;
+  color:var(--e-muted);text-transform:uppercase;border-bottom:1px solid var(--e-line);
+  background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.01));
+  backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%)}
+.ae-panel-h .x{margin-left:auto;opacity:.5}
+/* 3. project panel */
+.ae-left{width:212px;flex:none;display:flex;flex-direction:column;border-right:1px solid var(--e-line);min-height:0;
+  background:rgba(255,255,255,.015)}
+.ae-assets{flex:1;overflow-y:auto;padding:6px}
+.ae-asset{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:10px;cursor:pointer;transition:.15s}
+.ae-asset:hover{background:linear-gradient(180deg,rgba(255,255,255,.1),rgba(255,255,255,.03))}
+.ae-asset.sel{background:linear-gradient(180deg,rgba(90,169,255,.28),rgba(90,169,255,.1));
+  outline:1px solid rgba(150,195,255,.4);box-shadow:var(--e-glass-hi)}
+.ae-thumb{width:30px;height:20px;border-radius:6px;flex:none;display:grid;place-items:center;overflow:hidden;
+  background:rgba(255,255,255,.06);border:1px solid var(--e-line);color:var(--e-muted)}
+.ae-thumb svg{width:13px;height:13px}
+.ae-asset .nm{font-size:11px;color:var(--e-txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.ae-asset .mt{font-size:8.5px;color:var(--e-muted);margin-left:auto;flex:none;letter-spacing:.06em}
+/* 4. composition viewer (holds the docking slot) */
+.ae-center{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
+.ae-comp-tabs{display:flex;align-items:center;gap:2px;height:30px;flex:none;padding:0 8px;
+  border-bottom:1px solid var(--e-line);
+  background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.01));
+  backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%)}
+.ae-tab{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--e-muted);padding:6px 14px;
+  border-radius:100px;cursor:pointer;white-space:nowrap;transition:.2s;margin:3px 0}
+.ae-tab:hover{color:var(--e-txt)}
+.ae-tab.active{color:#fff;background:linear-gradient(180deg,rgba(90,169,255,.4),rgba(90,169,255,.16));
+  box-shadow:var(--e-glass-hi)}
+.ae-tab i{width:6px;height:6px;border-radius:1px;background:var(--e-blue);flex:none}
+.ae-comp-tabs .ae-tc{margin-left:auto;font-size:11px;letter-spacing:.08em;color:var(--e-red)}
+/* the viewer frame itself gets the same colorful glow (reusing .editor's palette) blurred
+   behind a dark glass letterbox, so the video frame reads as one more pane of the same glass
+   system rather than a plain opaque video well. */
+.ae-viewer{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:0;
+  background:
+    radial-gradient(360px 280px at 20% 15%,rgba(63,163,122,.22),transparent 65%),
+    radial-gradient(320px 260px at 85% 85%,rgba(90,169,255,.18),transparent 65%),
+    #060709}
+#dockSlot{position:relative;width:100%;max-height:100%;aspect-ratio:16/9;background:transparent;
+  border-radius:10px;box-shadow:0 0 0 1px rgba(255,255,255,.08)}
+.ae-handles{position:absolute;inset:0;pointer-events:none;z-index:6}
+.ae-handles .hnd{position:absolute;width:7px;height:7px;border:1px solid rgba(255,255,255,.6);background:rgba(0,0,0,.35)}
+.ae-cross{position:absolute;left:50%;top:50%;width:18px;height:18px;transform:translate(-50%,-50%);opacity:.55}
+.ae-cross::before,.ae-cross::after{content:"";position:absolute;background:rgba(255,255,255,.7)}
+.ae-cross::before{left:50%;top:0;bottom:0;width:1px;transform:translateX(-50%)}
+.ae-cross::after{top:50%;left:0;right:0;height:1px;transform:translateY(-50%)}
+/* BUG FIX: confirmed via elementFromPoint() that this label was always losing the stacking
+   fight against #dockVideo (z-index:4), which sits OUTSIDE .container (z-index:3, the ancestor
+   this label lives inside) - a deeply-nested z-index can never out-rank a sibling of its own
+   ancestor. Raising .container's z-index instead isn't safe: .editor has its own unconditional
+   opaque background, which would then cover the full-bleed video from the very start of the
+   scroll. Since this is decorative-only HUD text with no function, hiding it is the safe fix
+   rather than a larger restructure for a label nobody's meant to read closely anyway. */
+.ae-vinfo{display:none;position:absolute;left:10px;bottom:8px;z-index:6;font-size:9.5px;letter-spacing:.08em;color:#e9edf5;
+  background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.04));
+  border:1px solid rgba(255,255,255,.2);border-radius:100px;padding:5px 11px;
+  box-shadow:var(--e-glass-hi);backdrop-filter:blur(16px) saturate(180%);-webkit-backdrop-filter:blur(16px) saturate(180%)}
+/* 5. properties panel */
+.ae-right{width:232px;flex:none;display:flex;flex-direction:column;border-left:1px solid var(--e-line);min-height:0;
+  background:rgba(255,255,255,.015)}
+.ae-props{flex:1;overflow-y:auto;padding:8px 10px 10px}
+.ae-prop-grp{font-size:9.5px;letter-spacing:.12em;color:var(--e-muted);text-transform:uppercase;margin:9px 0 5px}
+.ae-prop{display:flex;align-items:center;gap:9px;padding:4px 0;font-size:11px}
+.ae-sw{width:12px;height:12px;border-radius:50%;border:1px solid var(--e-line-2);flex:none;cursor:pointer;transition:.15s}
+.ae-sw:hover{border-color:var(--e-amber);box-shadow:0 0 6px rgba(244,196,81,.5)}
+.ae-sw.on{background:var(--e-amber);border-color:var(--e-amber);box-shadow:0 0 8px rgba(244,196,81,.6)}
+.ae-prop .lbl{color:var(--e-muted);white-space:nowrap}
+.ae-prop .val{margin-left:auto;display:flex;gap:9px;color:#7fd4ff;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ae-prop .val span{cursor:pointer}.ae-prop .val span:hover{color:#aee5ff}
+.ae-align{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;margin:5px 0}
+.ae-align button{aspect-ratio:1;border:1px solid var(--e-line);
+  background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.02));border-radius:9px;
+  color:var(--e-muted);cursor:pointer;display:grid;place-items:center;transition:.15s}
+.ae-align button:hover{color:var(--e-txt);background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.05));
+  box-shadow:var(--e-glass-hi)}
+.ae-align svg{width:13px;height:13px}
+.ae-ltools{display:flex;flex-direction:column;gap:6px;margin-top:5px}
+.ae-ltools button{text-align:left;font-size:11px;color:var(--e-txt);padding:9px 12px;border-radius:12px;
+  border:1px solid var(--e-line);background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.015));
+  cursor:pointer;transition:.15s}
+.ae-ltools button:hover{background:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.04));
+  border-color:var(--e-line-2);box-shadow:var(--e-glass-hi)}
+
+/* 6. timeline panel */
+/* Measured directly (.ae-tl-scroll's scrollHeight): the colhead + all 7 layer rows need 214px,
+   plus the 42px transport bar = 256px total. The previous 178px only fit the transport bar plus
+   ~4 rows, so Motion_Graphic_Lower3rd sat right at the clipped edge and Background_Music/
+   SFX_Whoosh/Voiceover were pushed into .ae-tl-scroll's internal overflow with no visible
+   scrollbar cue, reading as "cut off, needs another scroll" since nothing indicated they were
+   reachable by scrolling inside that specific box rather than scrolling the page. ae-body is
+   flex:1 in the same flex column, so growing this absorbs the difference from its own slack
+   (a 3-panel viewer that's mostly whitespace) without changing the editor's total pinned
+   height budget.
+   256px left .ae-tl-scroll's clientHeight at 213px against 214px of actual content, a 1px
+   overflow from box-model/font rounding that's enough to trigger overflow:auto's scrollbar even
+   though nothing is actually cut off. Bumped to 264px for real margin instead of an exact match,
+   and split .ae-tl-scroll's overflow below into overflow-x:auto (still needed for the ruler on
+   narrow screens) with overflow-y:hidden, so a vertical scrollbar can't render here even if a
+   future content/font change reintroduces a few px of rounding drift. */
+.e-timeline-wrap{position:relative;flex:none;height:264px;display:flex;flex-direction:column;
+  border-top:1px solid var(--e-line);background:rgba(255,255,255,.012);overflow:hidden}
+.ae-transport{display:flex;align-items:center;gap:12px;height:42px;flex:none;padding:0 12px;border-bottom:1px solid var(--e-line);
+  background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.008));
+  backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%)}
+.e-ctrls{display:flex;align-items:center;gap:6px}
+.e-ctrls button{width:30px;height:28px;border-radius:100px;border:1px solid var(--e-line);
+  background:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,.02));color:var(--e-txt);
+  display:grid;place-items:center;cursor:pointer;transition:.2s}
+.e-ctrls button:hover{border-color:var(--e-line-2);background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.05));
+  box-shadow:var(--e-glass-hi)}
+.e-ctrls button.play{background:linear-gradient(180deg,#fff,#dfe4ee);color:#0a0f1c;border-color:transparent;width:34px;
+  box-shadow:0 4px 14px -4px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.8)}
+.e-ctrls svg{width:13px;height:13px}
+.ae-counter{font-size:11px;letter-spacing:.1em;border:1px solid var(--e-line);border-radius:100px;padding:6px 13px;
+  background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.015));box-shadow:var(--e-glass-hi)}
+.e-scrub-tc{font-size:12px;letter-spacing:.08em;color:var(--e-muted);white-space:nowrap}
+.e-scrub-tc b{color:var(--e-red);font-weight:400}
+.ae-metas{display:flex;gap:6px;margin-left:auto}
+.ae-meta{font-size:9.5px;letter-spacing:.08em;color:var(--e-muted);border:1px solid var(--e-line);border-radius:100px;
+  padding:5px 11px;cursor:pointer;transition:.15s;
+  background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.01))}
+.ae-meta:hover{color:var(--e-txt);box-shadow:var(--e-glass-hi)}
+.ae-meta.on{color:#1a1408;border-color:rgba(244,196,81,.5);
+  background:linear-gradient(180deg,#ffd76b,var(--e-amber));box-shadow:var(--e-glass-hi)}
+/* No visible scrollbar here: overflow-x:auto is intentional (the timeline's edge-fade below
+   relies on it for narrow/mobile viewports where the row is wider than the panel), but a
+   visible scrollbar bar under the compact mockup reads as a UI defect, not an affordance. The
+   swipe/drag-to-scroll behavior stays fully functional, only the scrollbar's own rendering is
+   hidden. Scoped to this element only, .editor's shared scrollbar styling (used by the project
+   panel's asset list) is untouched. */
+.ae-tl-scroll{flex:1;overflow-x:auto;overflow-y:hidden;min-height:0;-webkit-overflow-scrolling:touch;
+  scrollbar-width:none;-ms-overflow-style:none}
+.ae-tl-scroll::-webkit-scrollbar{display:none;height:0}
+.e-timeline{position:relative;min-width:820px}
+/* RESPONSIVE FIX: this area was already internally horizontally scrollable (overflow:auto on
+   .ae-tl-scroll), so it never caused page-level overflow, but there was zero visual cue that it
+   scrolls, so on mobile the right side (later ruler marks, clip-bar tails) just read as "cut
+   off". znaac.xyz was checked directly and doesn't have an equivalent multi-row layer/track
+   timeline to mirror (their editor mockup is a simple preview + transport bar, no track grid),
+   so this reuses the site's own already-established pattern for "content wider than its box":
+   the same edge-fade technique as .marquee, a fixed overlay on the STATIC wrapper (not the
+   scrolling element, position:relative added to .e-timeline-wrap above) so it stays put while
+   the track scrolls underneath it. */
+@media (max-width:820px){
+  .e-timeline-wrap::after{content:"";position:absolute;top:38px;right:0;bottom:0;width:26px;
+    z-index:7;pointer-events:none;
+    background:linear-gradient(270deg,rgba(11,17,32,.95),transparent)}
+}
+.ae-row{display:grid;grid-template-columns:300px 1fr;align-items:stretch;border-bottom:1px solid rgba(125,145,200,.06)}
+/* was a hardcoded navy (#0b1120), the same off-theme-blue issue as the .editor::before glow
+   above; var(--bg-2) matches the site's own dark-charcoal token instead. */
+.ae-colhead{position:sticky;top:0;z-index:5;background:var(--bg-2)}
+.ae-colhead .info,.ae-layer .info{display:grid;grid-template-columns:1fr 60px 58px 76px;align-items:center;
+  border-right:1px solid var(--e-line);min-width:0}
+.ae-colhead .info{height:24px;font-size:9px;letter-spacing:.05em;color:var(--e-muted);text-transform:uppercase}
+.ae-colhead .info span{padding:0 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ae-ruler{position:relative;display:flex;justify-content:space-between;align-items:center;height:24px;padding:0 6px;
+  font-size:9px;letter-spacing:.04em;color:var(--e-muted)}
+.ae-layer .info{height:26px}
+.ae-layer:hover{background:rgba(125,145,200,.05)}
+.ae-lname{display:flex;align-items:center;gap:5px;min-width:0;padding:0 7px}
+.ae-eye,.ae-lock{width:13px;height:13px;flex:none;color:var(--e-muted);cursor:pointer;transition:.15s}
+.ae-eye:hover,.ae-lock:hover{color:var(--e-txt)}
+.ae-swatch{width:9px;height:9px;border-radius:2px;flex:none}
+.ae-lname .txt{font-size:11px;color:var(--e-txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.ae-col{font-size:9.5px;color:var(--e-muted);padding:0 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;display:flex;align-items:center}
+.ae-col.drop::after{content:"▾";margin-left:4px;opacity:.55;flex:none}
+.ae-track{position:relative;height:26px;display:flex;align-items:center;padding:0 2px}
+.ae-bar{position:absolute;top:50%;transform:translateY(-50%);height:18px;border-radius:100px;overflow:hidden;
+  display:flex;align-items:center;padding:0 9px;font-size:9px;color:rgba(255,255,255,.95);white-space:nowrap;cursor:pointer;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 0 0 1px rgba(255,255,255,.14);text-overflow:ellipsis}
+.ae-bar.vid{background:linear-gradient(180deg,rgba(244,196,81,.55),rgba(244,196,81,.24))}
+.ae-bar.vidb{background:linear-gradient(180deg,rgba(90,169,255,.55),rgba(90,169,255,.24))}
+.ae-bar.mg{background:linear-gradient(180deg,rgba(154,134,255,.58),rgba(154,134,255,.26))}
+.ae-bar.aud{background:rgba(67,212,189,.1);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),inset 0 0 0 1px rgba(67,212,189,.45)}
+/* playhead (JS positions left via measured gutter) */
+.e-playhead{position:absolute;top:0;bottom:0;left:300px;width:0;z-index:6;pointer-events:none}
+.ph-line{position:absolute;top:0;bottom:0;left:0;width:1.5px;
+  background:linear-gradient(180deg,var(--e-amber),rgba(244,196,81,.2));box-shadow:0 0 10px rgba(244,196,81,.5)}
+.ph-diamond{position:absolute;top:-1px;left:-4.5px;width:9px;height:9px;background:var(--e-amber);
+  transform:rotate(45deg);box-shadow:0 0 10px rgba(244,196,81,.7)}
+/* audio waveforms inside the bars */
+.wave,.wave2{position:absolute;inset:2px;display:flex;align-items:center;gap:1px;overflow:hidden;border-radius:2px;padding:0 4px}
+.wave{background:linear-gradient(180deg,rgba(67,212,189,.14),rgba(67,212,189,.04))}
+.wave i{flex:1;min-width:1px;background:rgba(67,212,189,.6);border-radius:1px}
+.wave2{background:linear-gradient(180deg,rgba(95,208,138,.14),rgba(95,208,138,.04))}
+.wave2 i{flex:1;min-width:1px;background:rgba(95,208,138,.55);border-radius:1px}
+
+/* status bar */
+.e-status{position:relative;flex:none;height:28px;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:0 12px;border-top:1px solid var(--e-line);
+  background:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,.02));
+  box-shadow:var(--e-glass-hi);
+  backdrop-filter:blur(28px) saturate(200%);-webkit-backdrop-filter:blur(28px) saturate(200%)}
+.e-status .s-l,.e-status .s-r{display:flex;align-items:center;gap:9px;font-size:9px;letter-spacing:.1em;color:var(--e-muted);white-space:nowrap;overflow:hidden}
+.e-status .sep{opacity:.4}
+.e-status .s-dot{width:6px;height:6px;border-radius:50%;background:var(--e-teal);box-shadow:0 0 8px var(--e-teal);flex:none}
+.e-status .brand{color:var(--e-txt);letter-spacing:.2em;font-weight:600}
+
+/* responsive: mobile = composition viewer + condensed timeline only */
+@media (max-width:820px){
+  .ae-left,.ae-right,.ae-toolbar,.ae-menu{display:none}
+  .e-timeline{min-width:600px}
+  .ae-row{grid-template-columns:140px 1fr}
+  .ae-colhead .info,.ae-layer .info{grid-template-columns:1fr}
+  .ae-col{display:none}
+  /* BUG FIX: the header row's "Mode"/"TrkMat"/"Parent" labels are plain <span> elements with
+     no class (unlike the data rows' equivalent cells, which use .ae-col and were already
+     hidden here). With grid-template-columns collapsed to 1fr above, those 3 extra header
+     spans were auto-placed into implicit stacked rows inside a fixed 24px-tall container,
+     so they rendered on top of each other as illegible overlapping text. Hiding every header
+     span after the first (matches .ae-col's data-row behavior) leaves only "Layer Name". */
+  .ae-colhead .info span:not(:first-child){display:none}
+  .e-playhead{left:140px}
+}
+@media (max-width:560px){
+  .ae-menubar .ae-tc,.e-scrub-tc,.ae-metas{display:none}
+  /* RESPONSIVE FIX: layer-name column and timeline min-width tightened further on small phones
+     so less horizontal scroll is needed to reach the later ruler marks/clip-bar tails. All
+     content (layer names, clip bars, ruler, MASTER/version labels) stays present, just a
+     narrower name column and a smaller minimum track width. */
+  .ae-row{grid-template-columns:110px 1fr}
+  .e-timeline{min-width:460px}
+  .e-playhead{left:110px}
+}
+
+/* =========================================================
+   ABOUT SECTION
+   ========================================================= */
+.about-sec{position:relative;padding:clamp(90px,11vw,150px) 0;background-color:transparent;overflow:hidden}
+.about-grid{position:relative;z-index:1;display:grid;grid-template-columns:1fr 1fr;gap:clamp(36px,6vw,80px);align-items:center}
+
+/* --- left: photo card w/ spotlight lighting behind the transparent cutout --- */
+.about-photo{position:relative;aspect-ratio:4/5;border-radius:var(--radius-lg);overflow:hidden;
+  background:radial-gradient(60% 55% at 50% 0%,#14151a 0%,#0a0a0c 55%,#050506 100%);
+  border:1px solid var(--line);box-shadow:0 40px 100px -40px rgba(0,0,0,.8)}
+/* the light source: a bright disc at the top + a soft downward beam (Image 3 mood) */
+.about-photo::before{
+  content:"";position:absolute;left:50%;top:-6%;width:46%;aspect-ratio:1;transform:translateX(-50%);
+  background:radial-gradient(circle,rgba(255,255,255,.9) 0%,rgba(63,163,122,.35) 38%,transparent 70%);
+  filter:blur(18px);opacity:.9;z-index:1;
+}
+.about-photo::after{
+  content:"";position:absolute;left:50%;top:0;width:70%;height:100%;transform:translateX(-50%);
+  background:conic-gradient(from 180deg at 50% 0%,transparent 34%,rgba(255,255,255,.14) 50%,transparent 66%);
+  filter:blur(6px);z-index:1;mix-blend-mode:screen;
+}
+.about-photo .cutout{position:relative;z-index:2;width:100%;height:100%;object-fit:cover;object-position:50% 15%;
+  filter:drop-shadow(0 30px 50px rgba(0,0,0,.55));}
+.about-photo .grain{position:absolute;inset:0;z-index:3;opacity:.05;mix-blend-mode:overlay;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+.about-photo .vignette{position:absolute;inset:0;z-index:3;pointer-events:none;
+  box-shadow:inset 0 -60px 90px -40px rgba(0,0,0,.65),inset 0 60px 90px -50px rgba(0,0,0,.35);}
+.about-glow{position:absolute;left:50%;bottom:-8%;width:70%;height:26%;transform:translateX(-50%);
+  background:radial-gradient(ellipse,rgba(63,163,122,.22) 0%,transparent 70%);filter:blur(30px);z-index:0}
+
+/* --- right: copy column --- */
+.about-copy .eyebrow{margin-bottom:22px}
+.about-copy h2{
+  font-family:var(--font-display);font-weight:700;font-size:clamp(1.15rem,2.05vw,1.85rem);
+  line-height:1.18;letter-spacing:-.02em;margin-bottom:22px;
+}
+.about-copy .bio{font-size:clamp(1rem,1.3vw,1.08rem);line-height:1.65;color:var(--muted);max-width:560px;margin-bottom:26px}
+.about-copy .bio b{color:var(--text);font-weight:600}
+.about-points{display:flex;flex-direction:column;gap:13px;margin-bottom:34px}
+.about-point{display:flex;align-items:flex-start;gap:12px;font-size:15px;color:var(--text)}
+.about-point .ck{flex:none;width:22px;height:22px;border-radius:50%;background:var(--accent);
+  display:grid;place-items:center;margin-top:1px}
+.about-point .ck svg{width:12px;height:12px;color:var(--accent-ink)}
+.about-actions{display:flex;flex-wrap:wrap;align-items:center;gap:22px}
+.about-trust .stars{color:var(--accent);letter-spacing:2px;font-size:14px}
+.about-trust small{display:block;color:var(--muted-2);font-size:12.5px;margin-top:3px}
+.about-trust b{font-family:var(--font-display);font-weight:600;color:var(--text)}
+
+@media (max-width:900px){
+  .about-grid{grid-template-columns:1fr;gap:44px}
+  .about-photo{max-width:420px;margin:0 auto;aspect-ratio:1/1.05}
+}
+
+/* =========================================================
+   LONG FORM PORTFOLIO SECTION
+   ========================================================= */
+.lf-sec{position:relative;padding:clamp(90px,11vw,150px) 0;background-color:transparent;overflow:hidden}
+.lf-header{position:relative;z-index:1;max-width:760px;margin:0 auto clamp(44px,6vw,64px);text-align:center}
+.lf-header .eyebrow{justify-content:center;margin-bottom:20px}
+.lf-header h2{font-family:var(--font-display);font-weight:700;font-size:clamp(2rem,4.2vw,3.2rem);
+  line-height:1.1;letter-spacing:-.02em;margin-bottom:18px}
+.lf-sub{color:var(--muted);font-size:clamp(.98rem,1.3vw,1.08rem);line-height:1.6;max-width:560px;margin:0 auto}
+
+.lf-grid{position:relative;z-index:1;display:grid;grid-template-columns:1fr 1fr;gap:22px}
+@media (max-width:720px){.lf-grid{grid-template-columns:1fr}}
+
+.lf-tile{position:relative;width:100%;aspect-ratio:16/9;border-radius:16px;overflow:hidden;
+  border:1px solid var(--line);background:var(--bg);cursor:pointer;padding:0;display:block;
+  transition:transform .5s var(--ease),border-color .3s;-webkit-tap-highlight-color:transparent}
+.lf-tile:hover{transform:translateY(-3px);border-color:var(--line-2)}
+.lf-tile.is-active{opacity:.32}
+.lf-thumb{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;background:var(--bg)}
+.lf-tile::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,rgba(0,0,0,0) 55%,rgba(0,0,0,.5) 100%)}
+/* glassmorphism play button, split into two layers so cursor-tracking is always 1:1 accurate:
+   .lf-play (outer) ONLY handles position — translate driven every frame by JS (cursor-follow
+   lerp). .lf-play-glass (inner) ONLY handles the visual glass look + hover scale/opacity. If
+   both translate and scale lived on the same element, CSS composes them multiplicatively
+   (translate × scale), so the hover-scale would silently damp the cursor-tracking distance. */
+.lf-play{position:absolute;left:50%;top:50%;width:58px;height:58px;pointer-events:none;z-index:2;
+  transform:translate(calc(-50% + var(--px,0px)),calc(-50% + var(--py,0px)))}
+.lf-play-glass{width:100%;height:100%;border-radius:50%;
+  scale:.88;opacity:.7;display:grid;place-items:center;color:#fff;
+  background:rgba(255,255,255,.10);
+  backdrop-filter:blur(16px) saturate(160%);-webkit-backdrop-filter:blur(16px) saturate(160%);
+  border:1px solid rgba(255,255,255,.32);
+  box-shadow:
+    0 10px 28px -10px rgba(0,0,0,.55),
+    inset 0 1px 0 rgba(255,255,255,.4),
+    inset 0 -8px 16px -10px rgba(0,0,0,.4);
+  transition:scale .4s var(--ease),opacity .4s var(--ease),background .3s,border-color .3s}
+.lf-play svg{width:19px;height:19px;margin-left:3px}
+/* on hover the tile plays its own inline preview — the glass button settles in, fully visible, and follows the cursor */
+.lf-tile:hover .lf-play-glass{scale:1;opacity:1;background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.45)}
+
+/* popup overlay */
+html.lf-lock,html.lf-lock body{overflow:hidden}
+.lf-overlay{position:fixed;inset:0;z-index:300;visibility:hidden;pointer-events:none}
+.lf-overlay.open{visibility:visible;pointer-events:auto}
+.lf-backdrop{position:absolute;inset:0;background:rgba(4,4,6,.86);backdrop-filter:blur(6px);
+  opacity:0;transition:opacity .35s var(--ease);cursor:pointer}
+.lf-overlay.open .lf-backdrop{opacity:1}
+.lf-modal{position:fixed;border-radius:16px;overflow:hidden;background:#000;
+  box-shadow:0 40px 120px -30px rgba(0,0,0,.8);will-change:left,top,width,height}
+.lf-modal video{width:100%;height:100%;object-fit:contain;background:#000;display:block}
+.lf-close,.lf-unmute{border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.5);color:#fff;
+  backdrop-filter:blur(6px);cursor:pointer;transition:.2s;z-index:3}
+.lf-close{position:absolute;top:12px;right:12px;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;line-height:1}
+.lf-close:hover{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.lf-close svg{width:15px;height:15px}
+.lf-unmute{position:absolute;bottom:12px;left:12px;display:flex;align-items:center;gap:8px;
+  padding:8px 13px;border-radius:100px;font-size:12px;letter-spacing:.04em}
+.lf-unmute:hover{background:rgba(0,0,0,.7)}
+.lf-unmute svg{width:15px;height:15px;flex:none}
+.lf-unmute .ic-on{display:none}
+.lf-unmute.is-unmuted .ic-muted{display:none}
+.lf-unmute.is-unmuted .ic-on{display:block}
+.lf-unmute .lbl::after{content:"Tap for sound"}
+.lf-unmute.is-unmuted .lbl::after{content:"Sound on"}
+
+/* =========================================================
+   SHORT FORM PORTFOLIO SECTION
+   znaac mechanism (extracted from their real /_next chunk, component `P`):
+   each card = outer positioning div (translateX + rotate, fixed fan layout,
+   never animates) wrapping an inner div (translate/rotate/scale, DOES animate,
+   620ms cubic-bezier(.22,1,.36,1)) wrapping the actual video card.
+   Base fan math per card index n (center = (count-1)/2 = 1.5 for 4 cards):
+     d = (n-1.5)*9      → rotation deg
+     u = (n-1.5)*206    → X offset px
+     h = 26*|n-1.5|     → resting Y sink px (outer cards sit lower)
+   On hover of card n: inner rotate = -0.78*d (78% straighten, not full 0),
+   translateY = -117px (lift), scale = 1.12, z-index → 50.
+   Other cards react: pushed sideways/dimmed based on distance from hovered index.
+   ========================================================= */
+.sf-sec{position:relative;padding:clamp(90px,11vw,150px) 0;background-color:transparent;overflow:hidden}
+/* FIX 2a: the gap was never really the header's margin (already tighter than Long Form's) —
+   it was the .sf-stage box being taller than the tallest resting card, leaving dead space
+   above the cards. Stage height is now driven off the same --sf-card-w custom property the
+   cards use, sized to exactly wrap (card height + max sink + a small breathing buffer), so
+   there's no leftover empty box above the fan. Fan/hover math itself is unchanged. */
+.sf-header{position:relative;z-index:1;max-width:760px;margin:0 auto clamp(28px,3.5vw,38px);text-align:center}
+.sf-header .eyebrow{justify-content:center;margin-bottom:20px}
+.sf-header h2{font-family:var(--font-display);font-weight:700;font-size:clamp(2rem,4.2vw,3.2rem);
+  line-height:1.1;letter-spacing:-.02em;margin-bottom:18px}
+.sf-sub{color:var(--muted);font-size:clamp(.98rem,1.3vw,1.08rem);line-height:1.6;max-width:560px;margin:0 auto}
+
+/* desktop fan stage */
+.sf-stage{--sf-card-w:clamp(180px,19vw,260px);position:relative;z-index:1;display:none;margin:0 auto;
+  width:100%;max-width:960px;height:calc(var(--sf-card-w) * 16 / 9 + 78px)}
+@media (min-width:860px){.sf-stage{display:block}}
+.sf-glow{position:absolute;bottom:2%;left:50%;width:min(92%,990px);height:120px;transform:translateX(-50%);
+  pointer-events:none;border-radius:50%;filter:blur(60px);
+  background:radial-gradient(ellipse,rgba(63,163,122,.07),transparent 70%)}
+
+/* FIX 2b: hover z-index must clear the fixed nav (z-index:100) so a lifted card renders on
+   top of it instead of tucking underneath — bumped from 50 to 500 (set inline by JS below,
+   this rule just documents the intent) and .sf-card-outer gets a baseline z so resting cards
+   never accidentally out-rank the nav either. */
+.sf-card-outer{position:absolute;bottom:0;left:50%;width:var(--sf-card-w);aspect-ratio:9/16;margin-left:calc(var(--sf-card-w) / -2);
+  transform-origin:bottom center;cursor:pointer}
+.sf-card-inner{position:absolute;inset:0;transform-origin:bottom center;will-change:transform,filter;
+  transition:transform .62s cubic-bezier(.22,1,.36,1),filter .62s cubic-bezier(.22,1,.36,1)}
+.sf-card-face{position:relative;width:100%;height:100%;overflow:hidden;border-radius:18px;background:var(--surface);
+  box-shadow:0 20px 44px -14px rgba(0,0,0,.85),0 0 0 1px rgba(255,255,255,.06)}
+.sf-card-face video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.sf-card-face::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:1;
+  background:linear-gradient(180deg,rgba(0,0,0,.55) 0%,rgba(0,0,0,0) 26%,rgba(0,0,0,0) 60%,rgba(0,0,0,.72) 100%)}
+.sf-card-face::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:1;
+  border-radius:18px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}
+.sf-card-outer.is-hover .sf-card-face{box-shadow:0 50px 110px -24px rgba(0,0,0,.92),0 0 0 1px rgba(255,255,255,.16)}
+
+/* mobile / tablet: vertical stack, no fan.
+   LAYOUT FIX: this was a horizontal scroll-snap carousel (flex row, fixed 170px cards), which
+   rendered as a cramped side-by-side row with a 3rd card's edge cut off, not a stack. Replaced
+   with the exact pattern Long Form already uses on mobile (.lf-grid at <=720px: a single-column
+   grid, one full-width item per row). Cards are still 9:16 vertical video previews (unlike Long
+   Form's 16:9), so width is 100% but aspect-ratio stays portrait; gap matches Long Form's 22px
+   mobile rhythm exactly instead of the old carousel's own gap value. */
+.sf-mobile{position:relative;z-index:1;display:grid;grid-template-columns:1fr;gap:22px}
+@media (min-width:860px){.sf-mobile{display:none}}
+.sf-m-card{position:relative;width:100%;max-width:340px;margin:0 auto;aspect-ratio:9/16;border-radius:16px;overflow:hidden;
+  background:var(--surface);box-shadow:0 18px 40px -16px rgba(0,0,0,.85);
+  border:1px solid var(--line)}
+.sf-m-card video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.sf-m-card::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,rgba(0,0,0,.5) 0%,rgba(0,0,0,0) 30%,rgba(0,0,0,.7) 100%)}
+.sf-m-card{cursor:pointer}
+
+/* =========================================================
+   SHARED SECTION SCAFFOLD (Parts 2–8)
+   `.m` = the muted 2nd headline line used across every new section.
+   ========================================================= */
+.sec{position:relative;padding:clamp(90px,11vw,150px) 0;background-color:transparent;overflow:hidden}
+.sec-head{position:relative;z-index:1;max-width:720px;margin:0 auto clamp(40px,6vw,60px);text-align:center}
+.sec-head .eyebrow{justify-content:center;margin-bottom:20px}
+.sec-head h2{font-family:var(--font-display);font-weight:700;font-size:clamp(2rem,4.2vw,3.2rem);
+  line-height:1.12;letter-spacing:-.02em;margin-bottom:18px}
+.hl-m,.sec-head h2 .m{color:var(--muted-2);font-weight:700}
+.sec-sub{color:var(--muted);font-size:clamp(.98rem,1.3vw,1.08rem);line-height:1.6;max-width:600px;margin:0 auto}
+
+/* =========================================================
+   PART 2 + 5 — INFINITE MARQUEE (thumbnails + testimonials)
+   Seamless technique: the track holds the set TWICE; it animates translateX 0 → -50%,
+   so at the loop point the second copy sits exactly where the first began → no jump.
+   Direction flips by swapping which end the keyframe starts from.
+   FIX 3/7: the previous mask-only edge fade looked like a hard crop because the cards fit
+   the row exactly with nothing spilling past the fade zone. Two changes fix that: (1) cards
+   are now sized so ~2 sit fully visible and a 3rd is genuinely cut by the container edge,
+   giving the mask something to actually fade, and (2) solid gradient overlays (::before/::after,
+   matching the page background) sit ON TOP of the track at each edge as a second, more visible
+   "dark shadow" layer, on top of the softer mask-image fade underneath.
+   ========================================================= */
+.marquee{position:relative;overflow:hidden;width:100%}
+.marquee::before,.marquee::after{content:"";position:absolute;top:0;bottom:0;width:clamp(60px,12vw,180px);
+  z-index:2;pointer-events:none}
+.marquee::before{left:0;background:linear-gradient(90deg,var(--bg) 0%,rgba(6,6,7,.85) 40%,transparent 100%)}
+.marquee::after{right:0;background:linear-gradient(270deg,var(--bg) 0%,rgba(6,6,7,.85) 40%,transparent 100%)}
+.marquee + .marquee{margin-top:clamp(16px,2.2vw,24px)}
+/* ZOOM FIX: the loop distance used to be a bare `-50%`, a CSS percentage resolved against the
+   track's own COMPOSITED rendered width. Same root cause already documented/fixed in
+   SmoothScroll.tsx for the hero docking animation: Chromium's zoom implementation can let that
+   rendered width drift from the stable offsetLeft/offsetWidth layout-pixel values, and the drift
+   scales up enough at extreme zoom (e.g. 25%) to visibly misalign the two duplicated card sets,
+   making the row appear to jump/stick off to one side instead of looping in place. --marq-shift
+   is now set from JS (SmoothScroll.tsx) using offsetLeft measurements in that same zoom-safe
+   layout-pixel space; the -50% here is only a pre-JS/no-JS fallback.
+   `will-change:transform` removed: it promotes the track to its own GPU-composited layer,
+   clipped by its non-composited .marquee (overflow:hidden) ancestor from a separate rendering
+   pass — a plausible source of extra zoom-dependent rounding on top of the loop-distance fix
+   above. Promoting .marquee too (so both share one layer) was tried and reverted: with 4
+   simultaneous wide composited marquee tracks it caused a real rendering hang on this machine.
+   Dropping will-change instead keeps the transform in the SAME paint pass as the clip, at a
+   small performance cost, without adding compositing load anywhere. */
+.marquee-track{display:flex;gap:clamp(18px,2vw,26px);width:max-content}
+.marquee-l .marquee-track{animation:marq-l var(--dur,46s) linear infinite}
+.marquee-r .marquee-track{animation:marq-r var(--dur,46s) linear infinite}
+@keyframes marq-l{from{transform:translate3d(0,0,0)}to{transform:translate3d(var(--marq-shift,-50%),0,0)}}
+@keyframes marq-r{from{transform:translate3d(var(--marq-shift,-50%),0,0)}to{transform:translate3d(0,0,0)}}
+.marquee:hover .marquee-track{animation-play-state:paused}
+@media (prefers-reduced-motion:reduce){.marquee-track{animation:none!important}}
+
+/* thumbnail cards, sized so ~2 sit fully in view with a 3rd genuinely peeking at the edge.
+   RESPONSIVE FIX: the min was 420px, wider than most phone viewports outright (the marquee's
+   own overflow:hidden stops this from causing page-level horizontal scroll, but the single
+   card read as oversized/cramped with almost no "next card" peek visible). Lowered to 260px so
+   it comfortably fits inside a 375-390px viewport's usable width (~320-340px after container
+   padding) with room for a peek; the 42vw/620px terms are unchanged so tablet/desktop sizing is
+   identical to before (they were already well above the old 420px min at those widths). */
+.thumb-card{flex:none;width:clamp(260px,42vw,620px);aspect-ratio:16/9;border-radius:16px;overflow:hidden;
+  border:1px solid var(--line);background:var(--surface);box-shadow:0 22px 50px -24px rgba(0,0,0,.8);
+  transition:border-color .3s}
+.thumb-card:hover{border-color:rgba(63,163,122,.4)}
+.thumb-card img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .6s var(--ease)}
+.thumb-card:hover img{transform:scale(1.06)}
+
+/* =========================================================
+   PART 3 — HOW I WORK (3 stage cards + sticky image)
+   ========================================================= */
+.hiw-grid{position:relative;z-index:1;display:grid;grid-template-columns:1.05fr .95fr;
+  gap:clamp(28px,4.5vw,60px);align-items:start}
+.hiw-stages{display:flex;flex-direction:column;gap:clamp(16px,2vw,22px)}
+.stage-card{position:relative;border-radius:20px;padding:clamp(26px,2.8vw,34px);overflow:hidden;
+  background:linear-gradient(180deg,var(--surface-2),var(--surface));
+  border:1px solid var(--line);
+  box-shadow:0 24px 50px -32px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.02) inset}
+.stage-card,.svc-card,.tm-card,.thumb-card,.contact-item{position:relative;overflow:hidden}
+.stage-card::before{content:"";position:absolute;top:0;left:8%;right:8%;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(63,163,122,.75),transparent)}
+.stage-top{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px}
+/* 3D icon badge: a diagonal emerald gradient (light corner to dark corner) plus a layered
+   inset highlight/shadow (glossy top sheen + rounded-off bottom edge) and a soft outer drop
+   shadow, standing in for a rendered 3D icon without a new asset pipeline or dependency, pure
+   CSS depth/lighting cues, per section, on top of the already content-relevant glyphs (research
+   magnifying glass, edit/motion-graphics squares, delivery paper-plane). Was a flat translucent
+   blue tint before this pass; recolored into the emerald family for sitewide cohesion. */
+.stage-icon{width:46px;height:46px;flex:none;border-radius:13px;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--accent-bright),var(--accent) 65%,#1d4a37 100%);
+  box-shadow:0 10px 22px -9px rgba(46,111,82,.6),inset 0 1px 0 rgba(255,255,255,.35),inset 0 -3px 6px -2px rgba(0,0,0,.35);
+  color:#fff}
+.stage-icon svg{width:22px;height:22px}
+.stage-pill{font-family:var(--font-display);font-size:11.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--accent-bright);padding:6px 13px;border-radius:100px;background:rgba(63,163,122,.12);border:1px solid rgba(63,163,122,.28)}
+.stage-card h3{font-family:var(--font-display);font-weight:700;font-size:clamp(1.2rem,1.8vw,1.4rem);
+  letter-spacing:-.01em;margin-bottom:10px}
+.stage-card p{color:var(--muted);font-size:15px;line-height:1.6}
+.stage-tags{display:flex;flex-wrap:wrap;gap:9px;margin-top:18px}
+.stage-tag{font-size:12.5px;padding:7px 13px;border-radius:100px;border:1px solid var(--line-2);
+  color:var(--muted);background:rgba(255,255,255,.03)}
+/* HOW I WORK pin: the previous `position:sticky` never held because the shared `.sec` wrapper
+   sets `overflow:hidden`, which makes `.sec` the sticky scroll container (a well-known sticky
+   killer). Pinning is now done with GSAP ScrollTrigger in HowIWork.tsx (position:fixed, immune
+   to that ancestor overflow), so this element just needs to sit in normal flow as the right
+   grid column. Mobile (<=900px) keeps it static above the cards. */
+.hiw-media-wrap{position:relative}
+.hiw-media{position:relative;border-radius:22px;overflow:hidden;aspect-ratio:3/4;
+  border:1px solid var(--line);box-shadow:0 40px 90px -40px rgba(0,0,0,.8)}
+.hiw-media img{width:100%;height:100%;object-fit:cover;display:block}
+/* FIX 4c: 4 images stacked in the same box, only the active one opaque, box never moves */
+.hiw-img{position:absolute;inset:0;opacity:0;transition:opacity .6s var(--ease);z-index:0}
+.hiw-img.active{opacity:1;z-index:1}
+.hiw-media-glow{position:absolute;left:50%;bottom:-8%;width:70%;height:24%;transform:translateX(-50%);
+  background:radial-gradient(ellipse,rgba(63,163,122,.28),transparent 70%);filter:blur(34px);z-index:-1}
+@media (max-width:900px){
+  .hiw-grid{grid-template-columns:1fr;gap:32px}
+  .hiw-media-wrap{position:static;order:-1;max-width:440px;margin:0 auto}
+}
+
+/* =========================================================
+   PART 4 — SERVICES (3 cards)
+   ========================================================= */
+.svc-grid{position:relative;z-index:1;display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.svc-card{position:relative;border-radius:20px;padding:clamp(28px,2.8vw,36px);background:rgba(26,26,26,.55);
+  backdrop-filter:blur(16px) saturate(140%);-webkit-backdrop-filter:blur(16px) saturate(140%);
+  border:1px solid var(--line);box-shadow:0 24px 50px -32px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.06);
+  transition:transform .5s var(--ease),border-color .3s,background .3s,box-shadow .5s var(--ease);overflow:hidden}
+.svc-card:hover{transform:translateY(-6px);border-color:rgba(63,163,122,.4);background:var(--surface-2);
+  box-shadow:0 24px 60px -30px rgba(63,163,122,.4)}
+/* Same 3D glossy-badge treatment as How I Work's .stage-icon, on Services' already
+   content-relevant glyphs (long-form camera/play, short-form lightning bolt, thumbnail image). */
+.svc-icon{width:54px;height:54px;border-radius:50%;display:grid;place-items:center;margin-bottom:22px;
+  background:linear-gradient(135deg,var(--accent-bright),var(--accent) 65%,#1d4a37 100%);
+  box-shadow:0 10px 24px -9px rgba(46,111,82,.6),inset 0 1px 0 rgba(255,255,255,.35),inset 0 -3px 6px -2px rgba(0,0,0,.35);
+  color:#fff}
+.svc-icon svg{width:24px;height:24px}
+.svc-arrow{position:absolute;top:clamp(26px,2.6vw,34px);right:clamp(26px,2.6vw,34px);color:var(--muted-2);
+  transition:.3s;transform:translate(0,0)}
+.svc-card:hover .svc-arrow{color:var(--text);transform:translate(2px,-2px)}
+.svc-arrow svg{width:18px;height:18px}
+.svc-card h3{font-family:var(--font-display);font-weight:700;font-size:clamp(1.25rem,1.9vw,1.5rem);
+  letter-spacing:-.01em;margin-bottom:12px;padding-right:26px}
+.svc-card p{color:var(--muted);font-size:15px;line-height:1.65}
+@media (max-width:860px){.svc-grid{grid-template-columns:1fr}}
+
+/* =========================================================
+   PART 5 — TESTIMONIALS (reuses .marquee)
+   FIX 7a: same bigger-card / edge-fade treatment as Fix 3's thumbnail rows, sized so ~2 cards
+   sit fully in view and a 3rd is genuinely cut by the container edge into the gradient fade.
+   ========================================================= */
+/* RESPONSIVE FIX: same issue and fix as .thumb-card above, min lowered 380px -> 240px so it
+   fits comfortably inside a phone viewport with room for a peek; 38vw/460px unchanged so
+   tablet/desktop sizing is identical to before. */
+.tm-card{flex:none;width:clamp(240px,38vw,460px);border-radius:20px;padding:30px;
+  background:rgba(26,26,26,.55);backdrop-filter:blur(16px) saturate(140%);-webkit-backdrop-filter:blur(16px) saturate(140%);
+  border:1px solid var(--line);box-shadow:0 24px 50px -32px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.06);display:flex;flex-direction:column;gap:14px;
+  transition:transform .4s var(--ease),border-color .3s,box-shadow .4s var(--ease)}
+.tm-card:hover{transform:translateY(-4px);border-color:rgba(63,163,122,.35);
+  box-shadow:0 20px 50px -28px rgba(63,163,122,.35)}
+.tm-stars{color:var(--accent);letter-spacing:2px;font-size:14px}
+.tm-quote{color:var(--text);font-size:15px;line-height:1.6;opacity:.92}
+.tm-who{display:flex;align-items:center;gap:12px;margin-top:auto}
+.tm-avatar{width:44px;height:44px;border-radius:50%;flex:none;overflow:hidden;
+  background:linear-gradient(135deg,#2a2a30,#111114);border:1px solid var(--line-2)}
+.tm-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.tm-name{font-family:var(--font-display);font-weight:600;font-size:15px}
+.tm-role{color:var(--muted-2);font-size:12.5px;margin-top:2px}
+
+/* =========================================================
+   PART 6 — FAQ (rebuilt: centered header, single-column divided-row list, no image)
+   Redesign matching scalewithcam.com/#reviews's FAQ style: the side image and its swap
+   mechanism (previously a sticky box + 7 stacked <img> layers cross-faded on click/hover, ported
+   from the same pattern How I Work still uses) are removed entirely. .faq-list is now the
+   layout itself, a single centered column narrower than the site's full container, each
+   question a full-width row with a thin bottom divider and no per-row card background, "+"
+   icon rotates to an "x" on open exactly as before. Accordion open/close logic is unchanged.
+   ========================================================= */
+.faq-list{position:relative;z-index:1;max-width:780px;margin:0 auto;display:flex;flex-direction:column}
+.faq-item{border-bottom:1px solid var(--line);cursor:pointer;transition:border-color .3s}
+.faq-item.open{border-color:var(--line-2)}
+.faq-q{display:flex;align-items:center;justify-content:space-between;gap:20px;width:100%;text-align:left;
+  padding:24px 4px;cursor:pointer;background:none;border:0;color:var(--text);
+  font-family:var(--font-display);font-weight:600;font-size:clamp(1.05rem,1.6vw,1.3rem);
+  transition:color .25s}
+.faq-item.open .faq-q,.faq-q:hover{color:var(--accent)}
+.faq-icon{flex:none;width:22px;height:22px;position:relative;transition:transform .35s var(--ease)}
+.faq-icon::before,.faq-icon::after{content:"";position:absolute;top:50%;left:50%;background:var(--accent);border-radius:2px}
+.faq-icon::before{width:14px;height:2px;transform:translate(-50%,-50%)}
+.faq-icon::after{width:2px;height:14px;transform:translate(-50%,-50%)}
+.faq-item.open .faq-icon{transform:rotate(135deg)}
+.faq-a{max-height:0;overflow:hidden;transition:max-height .45s var(--ease)}
+.faq-item.open .faq-a{max-height:340px}
+.faq-a-inner{padding:0 4px 24px;color:var(--muted);font-size:15px;line-height:1.65;max-width:640px}
+
+/* =========================================================
+   PART 7 — CONTACT (dark card, consistent with site)
+   FIX 9a: both columns now center their own content instead of hugging the left edge, each
+   constrained to a comfortable max-width and centered within its grid track.
+   FIX 9b: raw email/phone/handle text removed from .cmethod, icon + label only (links stay
+   fully functional, mailto/wa.me/t.me hrefs are unchanged, just nothing prints the raw value).
+   ========================================================= */
+/* FIX (two columns, centered as a group AND balanced in height): grid tracks sized to their
+   own content (minmax(0,max-width)), grid centered via justify-content:center so the pair sits
+   together instead of spread edge-to-edge. align-items:center previously vertically centered
+   the shorter 332px button column inside the 452.75px form row, leaving big equal gaps above
+   and below it (~112px) versus the form's small ~52px gaps — the buttons visibly floated,
+   looking small and disconnected rather than matched to the form. align-items:stretch instead
+   makes the button column's own box span the full row height (matching the form's top/bottom
+   edges exactly), and .contact-methods below distributes its 4 buttons across that full height
+   with space-between so the column reads as evenly filled, not compact-and-centered. */
+.contact-card{position:relative;z-index:1;border-radius:26px;border:1px solid var(--line);
+  background:linear-gradient(180deg,var(--surface),var(--bg-2));
+  padding:clamp(28px,4vw,54px);display:grid;
+  grid-template-columns:minmax(0,400px) minmax(0,440px);justify-content:center;align-items:stretch;
+  gap:clamp(30px,5vw,56px)}
+@media (max-width:860px){.contact-card{grid-template-columns:1fr}}
+/* Compact buttons: padding/icon/gap/font sizes all pulled back down from the previous
+   oversized pass (26px->14px padding, 60px->44px icon, 22px->12px gap, 17px->15px label). */
+.contact-methods{display:flex;flex-direction:column;justify-content:space-between;gap:12px;
+  width:100%;max-width:400px;margin:0 auto}
+.contact-item{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:14px;
+  text-decoration:none;border:1px solid var(--line);background:var(--surface-2);
+  transition:transform .4s var(--ease),border-color .3s,background .3s,box-shadow .4s var(--ease)}
+.contact-item:hover{transform:translateY(-3px);border-color:rgba(63,163,122,.4);background:rgba(63,163,122,.05);
+  box-shadow:0 16px 40px -24px rgba(63,163,122,.4)}
+.contact-item:hover .contact-item-icon{box-shadow:0 12px 26px -8px rgba(46,111,82,.75),inset 0 1px 0 rgba(255,255,255,.4),inset 0 -3px 6px -2px rgba(0,0,0,.3)}
+.contact-item-icon{width:44px;height:44px;flex:none;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;transition:box-shadow .3s;
+  background:linear-gradient(135deg,var(--accent-bright),var(--accent) 65%,#1d4a37 100%);
+  box-shadow:0 8px 18px -8px rgba(46,111,82,.55),inset 0 1px 0 rgba(255,255,255,.35),inset 0 -3px 6px -2px rgba(0,0,0,.35);
+  color:#fff}
+.contact-item-icon svg{width:22px;height:22px;display:block;flex:none}
+.contact-item-icon svg.ic-whatsapp{width:19px;height:19px}
+.contact-item-label{font-family:var(--font-display);font-weight:600;font-size:15px;
+  line-height:1;display:flex;align-items:center}
+.cform{display:flex;flex-direction:column;gap:16px;width:100%;max-width:440px;margin:0 auto}
+.field{display:flex;flex-direction:column;gap:8px}
+.field label{font-size:13px;color:var(--muted);font-family:var(--font-display);letter-spacing:.02em}
+.field input,.field textarea{width:100%;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;
+  padding:14px 16px;color:var(--text);font-family:var(--font-body);font-size:15px;transition:border-color .25s,background .25s}
+.field input:focus,.field textarea:focus{outline:none;border-color:var(--accent);background:rgba(255,255,255,.03)}
+.field textarea{resize:vertical;min-height:120px}
+.cform .btn{margin-top:6px;align-self:center}
+.cform-note{font-size:12.5px;color:var(--muted-2);margin-top:2px;text-align:center}
+
+/* FIX 10: .cal-card / .cal-embed rules removed with the Book a Call section. */
+
+/* =========================================================
+   PART 9 — FOOTER (redesigned to the compact Mz Media-style reference)
+   Structure: brand mark top-left -> left-aligned "Ready When You Are." at a large-but-reasonable
+   display size -> a small, compact row of 8 social/contact icons sitting directly under it (not
+   a separate centered full-width band) -> a thin top divider -> left-aligned copyright line.
+   The whole block is left-aligned and the section's total padding is cut way down so it reads as
+   a compact closing bar instead of another full-height section.
+   Hover motion preserved unchanged: the large gradient background (220% size) slides its
+   position smoothly on hover, a slow 3.2s ease transition rather than an instant color snap.
+   ========================================================= */
+.footer{position:relative;background:transparent;
+  padding:clamp(32px,5vw,52px) 0 24px;overflow:hidden;text-align:left}
+
+/* Top row: brand mark (left) + "for queries" email + divider + 3 icon buttons (right),
+   matching the Hysekt.xyz reference. Wraps on narrow screens rather than clipping. */
+.footer-top{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
+  gap:16px;margin-bottom:18px}
+.footer-brand-mark{display:inline-flex}
+.footer-right{display:flex;align-items:center;flex-wrap:wrap;gap:16px}
+.footer-queries{display:flex;align-items:center;gap:9px;font-size:13.5px}
+.footer-queries-label{color:var(--muted-2)}
+.footer-queries-email{display:inline-flex;align-items:center;gap:7px;color:var(--text);
+  transition:color .25s}
+.footer-queries-email:hover{color:var(--accent)}
+.footer-queries-email svg{width:15px;height:15px;flex:none;display:block}
+.footer-divider{width:1px;height:20px;background:var(--line-2);flex:none}
+.footer-icons{display:flex;align-items:center;gap:8px}
+.footer-icons a{width:30px;height:30px;border-radius:8px;border:1px solid var(--line-2);
+  display:flex;align-items:center;justify-content:center;color:var(--muted);transition:.25s;flex:none}
+.footer-icons a:hover{color:var(--accent-ink);background:var(--accent);border-color:transparent;transform:translateY(-2px)}
+.footer-icons svg{width:15px;height:15px;display:block}
+/* WhatsApp optical-weight match (same reasoning as Contact Us / the primary icon row): the
+   Simple Icons glyph is a solid, edge-to-edge mark versus the thin-stroke/inset icons around
+   it, so it is sized down via width/height only, never a transform nudge. */
+.footer-icons svg.ic-whatsapp{width:13px;height:13px}
+/* Secondary row (Email/WhatsApp/Telegram/Facebook/TikTok): sits directly under the primary
+   LinkedIn/X/YouTube row, takes over the large gap before the headline that .footer-top used
+   to carry on its own, so total spacing above "Ready When You Are." stays close to before. */
+.footer-icons-secondary{flex-wrap:wrap;margin-bottom:clamp(56px,10vw,110px)}
+/* RESPONSIVE FIX: 30x30px buttons are a bit small to tap comfortably; bumped to 38x38px on
+   phones only (desktop's deliberately small/delicate icon row is untouched). */
+@media (max-width:600px){
+  .footer-icons a{width:38px;height:38px}
+  .footer-icons svg{width:17px;height:17px}
+  .footer-icons svg.ic-whatsapp{width:15px;height:15px}
+}
+
+/* Single-line size: the headline text has no forced <br/> (a hardcoded break, not font-size,
+   was the original cause of the 2-line wrap, removed in content/footer.ts). .container caps out
+   at --maxw (1240px) regardless of viewport, so available width is effectively fixed from
+   ~1280px viewports upward. Bumped the cap 5.6rem->6.6rem (105.6px): "Ready When You Are." at
+   that size measures ~1040px against the ~1188px usable width inside the container (1240px
+   minus 26px padding each side), still comfortably one line with margin to spare. The vw term
+   only matters below the 1240px breakpoint, scaling down smoothly toward mobile. */
+.footer-cta{font-family:var(--font-display);font-weight:700;letter-spacing:-.03em;
+  font-size:clamp(2.4rem,6.3vw,6.6rem);line-height:1.0;max-width:100%;white-space:normal;
+  margin-bottom:clamp(40px,7vw,72px)}
+.footer-cta .accent{color:var(--accent);font-style:italic;font-weight:500}
+
+/* Bottom row: thin divider, then rights (left) + short muted tagline (right). */
+.footer-bottom{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
+  gap:10px;padding-top:18px;border-top:1px solid var(--line)}
+.footer-copy{color:var(--muted-2);font-size:13px}
+.footer-tagline{color:var(--muted-2);font-size:13px}
+

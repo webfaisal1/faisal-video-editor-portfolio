@@ -1,0 +1,17 @@
+/node_modules
+/.next
+/out
+/build
+/coverage
+.env*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+*.pem
+*.tsbuildinfo
+
+.vercel
+
+# large video assets, hosted elsewhere rather than pushed to the repo
+public/*.mp4
