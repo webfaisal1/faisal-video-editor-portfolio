@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
-import CursorTrail from "@/components/providers/CursorTrail";
+import AtmosphericBackground from "@/components/providers/AtmosphericBackground";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -22,13 +22,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <div className="bg-ambient" aria-hidden="true" />
-        <span className="orb orb-1" aria-hidden="true" />
-        <span className="orb orb-2" aria-hidden="true" />
-        <span className="orb orb-3" aria-hidden="true" />
+        <AtmosphericBackground />
         {children}
-        <CursorTrail />
         <div className="edge-accent" aria-hidden="true" />
+        <div className="scroll-progress" aria-hidden="true">
+          <div className="scroll-progress-bar" id="scrollProgressBar" />
+        </div>
         {/* Tawk.to live chat, site-wide. afterInteractive: loads once the page is interactive,
             after hydration, same real Property/Widget ID as the account's generated script.
             Default bubble renders bottom-right at a lower stacking context than the fixed nav

@@ -7,7 +7,6 @@ import ShortForm from "@/components/sections/ShortForm";
 import Thumbnails from "@/components/sections/Thumbnails";
 import HowIWork from "@/components/sections/HowIWork";
 import Services from "@/components/sections/Services";
-import Testimonials from "@/components/sections/Testimonials";
 import Faq from "@/components/sections/Faq";
 import Contact from "@/components/sections/Contact";
 import Footer from "@/components/sections/Footer";
@@ -27,7 +26,6 @@ export default function Home() {
       <Thumbnails />
       <HowIWork />
       <Services />
-      <Testimonials />
       <Faq />
       <Contact />
       <Footer />

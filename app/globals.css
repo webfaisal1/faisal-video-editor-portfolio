@@ -15,34 +15,59 @@
    DESIGN SYSTEM / TOKENS
    ========================================================= */
 /* =========================================================
-   REBRAND: Charcoal + Emerald (replaces the previous electric-lime dark theme).
-   Every color in this file routes through these tokens (Tailwind config also just aliases
-   them), so this block is the single source of truth for the palette swap. The only literal
-   hex/rgb values left in the stylesheet are decompositions of these same tokens into rgba()
-   for glow/gradient alpha blending (search for "46,111,82", the emerald rgb triplet).
-   - --bg / --bg-2: near-black and charcoal darkest surfaces
-   - --surface / --surface-2: charcoal card surfaces
-   - --accent: primary emerald (buttons, active states, CTAs)
-   - --accent-bright: a lighter/more saturated emerald used only for glows and hover highlights,
-     since the base emerald is too dark/desaturated on its own to read as a glow
-   - --accent-ink: text color on accent-colored surfaces (near-white, emerald is too dark for
-     the old dark-ink-on-lime approach)
-   - --sage: soft sage, used sparingly for light-touch contrast accents
+   THEME: Pure Black + Electric Blue — matched to the owner's Framer portfolio
+   (itsmemohammadfaisal.framer.media), sampled from that site's LIVE computed styles rather than
+   eyeballed from a screenshot. Backgrounds were ranked by rendered area and text colours by
+   character count, so these are the colours that site actually leans on, not incidental ones.
+
+   MEASURED SOURCE VALUES (what was found there):
+     #000000            page background — dominant by a wide margin (~30M px^2)
+     #080808            secondary surface
+     #1f2021            card / panel surface
+     #0055FF            accent. Fills render as #0055fe (Framer rounds); every glow and gradient
+                        uses rgb(0,85,255), so that is treated as canonical
+     #FFFFFF            headings and primary text
+     rgba(255,255,255,.6) / .5   muted body text — over pure black these flatten to #999999 and
+                        #808080, which is why --muted/--muted-2 are exactly those
+     #EFEEEC            warm off-white, used as a light button fill
+     #131313            dark ink on that light fill
+     #999999            grey used throughout their gradient stops
+   Signature effects sampled there: CTA glow rgba(0,85,255,.5) 0 8px 40px; softer
+   rgba(0,85,255,.35) 2px 4px 24px; accent seam linear-gradient(90deg,transparent,#0055FF,
+   transparent); glass wash linear-gradient(rgba(255,255,255,.05),rgba(153,153,153,.06)).
+
+   TWO DERIVED VALUES (not sampled, and flagged as such):
+     --accent-bright #407FFF — Framer varies the SAME blue by alpha instead of keeping a second
+       token. This codebase's glows/hover states need a genuinely lighter tint to read on black,
+       so this is #0055FF lifted toward white at identical hue (220), not a new colour.
+     --surface #141516 — interpolated between their #080808 and #1f2021, because this codebase
+       has one more surface step than that site does.
+
+   CONTRAST. --accent-ink stays near-white: #FFFFFF on #0055FF measures 5.61:1, clearing the 4.5
+   AA floor, and matches what the Framer site itself does on its blue CTA. Note the accent's
+   luminance is 0.137 — a blue can be vivid and still dark, because blue contributes only 0.0722
+   to relative luminance versus green's 0.7152. Any future accent swap must re-check this pairing.
+   - --bg / --bg-2: pure black and the near-black secondary surface
+   - --surface / --surface-2: panel/card surfaces
+   - --accent: primary electric blue (buttons, active states, CTAs)
+   - --accent-bright: lighter tint, glows and hover highlights only
+   - --accent-ink: text on accent-colored surfaces (white — see the contrast note)
+   - --sage: warm off-white, used sparingly for light-touch contrast accents
    ========================================================= */
 :root{
-  --bg:#0f0f0f;
-  --bg-2:#151515;
-  --surface:#1a1a1a;
-  --surface-2:#202020;
+  --bg:#000000;
+  --bg-2:#080808;
+  --surface:#141516;
+  --surface-2:#1f2021;
   --line:rgba(255,255,255,.08);
   --line-2:rgba(255,255,255,.15);
-  --text:#f3f5f3;
-  --muted:#98a398;
-  --muted-2:#676f67;
-  --accent:#2e6f52;             /* emerald */
-  --accent-bright:#3fa37a;      /* brighter emerald, glows/hover only */
-  --accent-ink:#f3f5f3;
-  --sage:#d8e3d9;
+  --text:#ffffff;
+  --muted:#999999;
+  --muted-2:#808080;
+  --accent:#0055ff;             /* azure */
+  --accent-bright:#407fff;      /* brighter azure, glows/hover only */
+  --accent-ink:#ffffff;         /* near-white — the accent is dark, see note above */
+  --sage:#efeeec;
   --radius:18px;
   --radius-lg:26px;
   --maxw:1240px;
@@ -55,77 +80,73 @@
 html{-webkit-text-size-adjust:100%}  /* smooth scroll handled by Lenis */
 body{
   font-family:var(--font-body);
-  background:var(--bg);
+  background-color:var(--bg);
   color:var(--text);
   line-height:1.5;
   overflow-x:hidden;
   -webkit-font-smoothing:antialiased;
 }
+/* ATMOSPHERIC WEBGL BACKGROUND (see components/providers/AtmosphericBackground.tsx).
+   REPLACES the previous fixed two-spot CSS glow outright — that rule is gone, not layered under
+   this one. Its two light positions (left 8%/34%, right 92%/72%) now live inside the shader as its
+   composition anchors, so the page keeps the exact same balance while the mist itself moves.
+   Same placement contract the CSS glow had, and for the same reasons: position:fixed so it holds
+   screen position through scroll, z-index:0 + pointer-events:none so it never intercepts clicks
+   and always paints behind real content (every section's own content wrapper here already uses
+   position:relative;z-index:1 — .about-grid, .hiw-grid, .sf-stage, .lf-grid, .sec-head, .footer).
+   The background-image on .atmos is a STATIC FALLBACK, deliberately approximating the shader's two
+   anchors: it shows if WebGL is unavailable/blocked (the component returns early and never paints
+   the canvas), so those visitors still get the site's established glow rather than a flat void.
+   The canvas paints over it when WebGL does work, since the canvas is opaque.
+   NOTE: like any fixed background layer here, this sits behind .editor-sec/.dock-stage — the
+   pinned, fully opaque hero — so it only becomes visible once that hero scrolls past. */
+.atmos{
+  position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;
+  background-image:
+    radial-gradient(38vw 34vh at 8% 34%,rgba(64,127,255,.15),transparent 70%),
+    radial-gradient(42vw 38vh at 92% 72%,rgba(0,85,255,.20),transparent 70%);
+  background-repeat:no-repeat,no-repeat;
+}
+/* The canvas backs a downscaled buffer (see RENDER_SCALE) and is stretched to the viewport here;
+   the field has no high-frequency detail, so the upscale is imperceptible. */
+.atmos-canvas{display:block;width:100%;height:100%}
+/* Hide the page's own scrollbar. Scrolling itself is untouched (wheel, touch, keyboard, and
+   Lenis all still work), only the bar's rendering is suppressed. Scoped to html/body rather
+   than a bare ::-webkit-scrollbar so the AE editor mockup's intentional inner scrollbars
+   (.editor, see below) keep their existing styling. */
+html,body{scrollbar-width:none;-ms-overflow-style:none}
+html::-webkit-scrollbar,body::-webkit-scrollbar{display:none;width:0;height:0}
 a{color:inherit;text-decoration:none}
 img{max-width:100%;display:block}
 ::selection{background:var(--accent);color:var(--accent-ink)}
-
-/* Cursor dot + streak (CursorTrail.tsx). Exactly two elements, not a cluster of stacked dots:
-   a small bright core that tracks the pointer almost instantly, and one thin elongated streak
-   behind it whose length/angle/opacity CursorTrail.tsx recomputes from the pointer's actual
-   velocity on every mousemove (long and visible while moving fast, short and faint while
-   moving slowly or idle). The streak's own linear-gradient fades from solid at the dot end to
-   transparent at its tail, so it reads as one continuous tapering trail rather than several
-   overlapping blurred circles. Smoothing is compositor-driven (plain CSS transitions),
-   deliberately not a JS rAF/ticker loop: this project's rAF loop can stall independently of
-   input (see the SmoothScroll/Lenis notes), which is what silently killed an earlier
-   GSAP-driven cursor attempt. Pointer-events:none throughout. */
-.cursor-trail{position:fixed;top:0;left:0;z-index:200;pointer-events:none;opacity:0;transition:opacity .5s ease}
-.cursor-dot{position:fixed;top:0;left:0;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;
-  pointer-events:none;background:rgba(63,163,122,.9);transition:transform .08s linear}
-.cursor-streak{position:fixed;top:0;left:0;height:2px;width:0;margin-top:-1px;border-radius:2px;
-  pointer-events:none;transform-origin:0 50%;
-  background:linear-gradient(90deg,rgba(63,163,122,.55),transparent);
-  transition:transform .12s ease-out,width .12s ease-out}
-@media (max-width:768px),(hover:none),(prefers-reduced-motion:reduce){.cursor-trail{display:none}}
 
 /* Vertical edge accent: a thin soft-glowing emerald line fixed along the right edge of the
    viewport, breathing between low and slightly-less-low opacity. Built from scratch as a pure
    CSS gradient + keyframe animation, not a scroll indicator or JS-driven element, so it needs
    no mount logic and cannot silently fail to render the way a JS-animated effect can. */
 .edge-accent{position:fixed;top:0;right:0;height:100vh;width:3px;z-index:150;pointer-events:none;
-  background:linear-gradient(180deg,transparent 0%,rgba(63,163,122,.5) 20%,rgba(63,163,122,.7) 50%,rgba(63,163,122,.5) 80%,transparent 100%);
-  filter:blur(1.5px);box-shadow:0 0 16px 1px rgba(63,163,122,.35);
+  background:linear-gradient(180deg,transparent 0%,rgba(64,127,255,.5) 20%,rgba(64,127,255,.7) 50%,rgba(64,127,255,.5) 80%,transparent 100%);
+  filter:blur(1.5px);box-shadow:0 0 16px 1px rgba(64,127,255,.35);
   animation:edge-accent-pulse 4.5s ease-in-out infinite}
 @keyframes edge-accent-pulse{0%,100%{opacity:.45}50%{opacity:.9}}
 @media (max-width:768px){.edge-accent{display:none}}
 @media (prefers-reduced-motion:reduce){.edge-accent{animation:none;opacity:.6}}
 
-/* =========================================================
-   GLOBAL BACKGROUND GLOW
-   Ported from scalewithcam.com's real background layer (inspected via devtools: a fixed
-   full-viewport `.ambient` wash of 3 large, very-low-opacity radial-gradients, plus 3
-   individually fixed, blurred, slowly-floating `.orb` circles — purple/pink there). Same
-   structure and blur/opacity/animation values here, recolored to this site's own emerald
-   accent family (--accent / --accent-bright) instead of copying their purple/pink, and
-   repositioned to sit on the left and right edges as requested rather than their layout. */
-.bg-ambient{position:fixed;inset:0;z-index:0;pointer-events:none;
-  background:
-    radial-gradient(800px 600px at 90% -10%,rgba(63,163,122,.16) 0%,transparent 60%),
-    radial-gradient(600px 700px at -5% 30%,rgba(46,111,82,.14) 0%,transparent 65%),
-    radial-gradient(700px 700px at 105% 85%,rgba(63,163,122,.1) 0%,transparent 65%);
-}
-.orb{position:fixed;border-radius:50%;pointer-events:none;z-index:0;
-  filter:blur(50px);opacity:.35;will-change:transform}
-.orb-1{width:380px;height:380px;top:12%;left:-140px;
-  background:radial-gradient(circle,rgba(63,163,122,.9),transparent 70%);
-  animation:orb-float-1 24s ease-in-out infinite}
-.orb-2{width:460px;height:460px;top:58%;right:-170px;
-  background:radial-gradient(circle,rgba(46,111,82,.9),transparent 70%);
-  animation:orb-float-2 30s ease-in-out infinite}
-.orb-3{width:280px;height:280px;top:82%;left:-90px;
-  background:radial-gradient(circle,rgba(63,163,122,.75),transparent 70%);
-  animation:orb-float-3 26s ease-in-out infinite}
-@keyframes orb-float-1{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(70px,40px) scale(1.1)}66%{transform:translate(-25px,80px) scale(.95)}}
-@keyframes orb-float-2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-80px,-60px) scale(1.12)}}
-@keyframes orb-float-3{0%,100%{transform:translate(0,0) scale(1)}40%{transform:translate(50px,-45px) scale(1.05)}80%{transform:translate(-35px,25px) scale(.92)}}
-@media (max-width:768px){.orb-3{display:none}}
-@media (prefers-reduced-motion:reduce){.orb{animation:none}}
+/* Horizontal scroll-progress bar: a thin track pinned to the very top edge of the viewport,
+   above/at the top of the fixed navbar (z-index:151, one above .edge-accent/.nav's own 150/100),
+   with an inner bar whose width (0%-100%) is written directly by JS in SmoothScroll.tsx (see
+   `updateProgress`), driven off window.scrollY vs the page's total scrollable height. width is a
+   layout-affecting property but this element is 100%-wide fixed/pointer-events:none, so animating
+   it never triggers layout on anything else on the page (no reflow of real content). A short CSS
+   transition smooths out the per-tick jumps between scroll-event updates into one continuous fill
+   rather than a stepped one, without needing a JS animation loop of its own. */
+.scroll-progress{position:fixed;top:0;left:0;right:0;height:3px;z-index:151;pointer-events:none;
+  background:rgba(255,255,255,.06)}
+.scroll-progress-bar{height:100%;width:0%;
+  background:linear-gradient(90deg,var(--accent),var(--accent-bright));
+  box-shadow:0 0 10px rgba(64,127,255,.65);
+  transition:width .12s linear}
+@media (prefers-reduced-motion:reduce){.scroll-progress-bar{transition:none}}
 
 
 .container{width:100%;max-width:var(--maxw);margin:0 auto;padding:0 26px}
@@ -160,51 +181,75 @@ img{max-width:100%;display:block}
 }
 .btn-primary{background:var(--accent);color:var(--accent-ink)}
 .btn-primary:hover{transform:translateY(-2px);background:var(--accent-bright);
-  box-shadow:0 8px 28px -6px rgba(63,163,122,.55)}
+  box-shadow:0 8px 28px -6px rgba(64,127,255,.55)}
 .btn-ghost{background:rgba(255,255,255,.03);color:var(--text);border-color:var(--line-2);
   backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
-.btn-ghost:hover{background:rgba(63,163,122,.08);border-color:var(--accent-bright);transform:translateY(-2px);
-  box-shadow:0 8px 24px -10px rgba(63,163,122,.35)}
+.btn-ghost:hover{background:rgba(64,127,255,.08);border-color:var(--accent-bright);transform:translateY(-2px);
+  box-shadow:0 8px 24px -10px rgba(64,127,255,.35)}
 .btn svg{width:17px;height:17px}
 
 /* =========================================================
    NAV
    ========================================================= */
+/* FLOATING GLASS NAV — no panel behind the bar at all (no background/border/blur/shadow on .nav
+   or .nav-inner themselves); the "glass" now lives on each individual link/button instead, so the
+   links read as small floating premium chips directly on the page rather than one solid strip. */
 .nav{
   position:fixed;top:0;left:0;right:0;z-index:100;
   opacity:0;pointer-events:none;                 /* reveal driven by GSAP ScrollTrigger */
-  background:var(--bg);
-  border-bottom:1px solid var(--line);
   will-change:transform,opacity;
 }
 .nav-inner{
   max-width:var(--maxw);margin:0 auto;padding:18px 26px;
-  display:flex;align-items:center;justify-content:space-between;gap:24px;
+  display:flex;align-items:center;justify-content:center;gap:24px;
 }
-.brand{
-  font-family:var(--font-display);font-weight:700;font-size:19px;letter-spacing:-.01em;
-  display:flex;align-items:center;gap:10px;
-}
-.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 14px var(--accent)}
-.nav-links{display:flex;align-items:center;gap:34px}
+.nav-links{display:flex;align-items:center;gap:10px}
+/* Each link is its own small glass pill (background/border/backdrop-filter lifted from the
+   site's other glass chips, e.g. .eyebrow) rather than bare text, since there's no longer a
+   shared nav panel behind them to read as "premium" on its own. */
 .nav-links a{
-  font-size:14.5px;color:var(--muted);font-weight:500;transition:color .25s;position:relative;
+  font-size:14.5px;color:var(--muted);font-weight:500;transition:color .25s,background .25s,border-color .25s;
+  position:relative;padding:9px 16px;border-radius:100px;
+  background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.015));
+  border:1px solid rgba(255,255,255,.1);
+  backdrop-filter:blur(16px) saturate(160%);-webkit-backdrop-filter:blur(16px) saturate(160%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.14);
 }
-/* Premium nav-link hover: a thin emerald underline grows from center rather than a flat
-   color-only swap. */
-.nav-links a::after{content:"";position:absolute;left:50%;bottom:-6px;width:0;height:1.5px;
-  background:var(--accent-bright);transform:translateX(-50%);transition:width .3s var(--ease)}
-.nav-links a:hover{color:var(--text)}
-.nav-links a:hover::after{width:100%}
+.nav-links a:hover{color:var(--text);background:rgba(255,255,255,.09);border-color:rgba(64,127,255,.4)}
+/* the CTA sits inline with the other links now (moved out of its own .nav-actions group in the
+   markup), so it gets the same glass treatment instead of the site's solid-fill .btn-primary,
+   just with a brighter rim/glow so it still reads as the primary action among the plain links.
+   Selector is `.nav-links a.nav-cta`, not just `.nav-cta`: a plain `.nav-cta` (specificity 0,1,0)
+   is LESS specific than `.nav-links a` above (0,1,1 — one class + one element), so its
+   background/border/box-shadow were silently losing to the plain link's values the whole time
+   despite being declared later in the file (confirmed live via getComputedStyle: border-color
+   was rendering as the plain link's rgba(255,255,255,.1), not this rule's emerald one). Adding
+   the `.nav-links a` prefix here brings this selector to 0,2,1, which reliably wins. */
+.nav-links a.nav-cta{
+  padding:10px 20px;font-size:14px;
+  background:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,.02));
+  color:var(--text);border:1px solid rgba(64,127,255,.55);
+  backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.24),0 0 32px -6px rgba(64,127,255,.85);
+  animation:nav-cta-bounce 2.4s ease-in-out infinite;
+}
+@keyframes nav-cta-bounce{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-5px)}
+}
+.nav-links a.nav-cta:hover{
+  background:rgba(64,127,255,.14);border-color:rgba(64,127,255,.7);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.24),0 0 38px -4px rgba(64,127,255,.95);
+  animation-play-state:paused;transform:translateY(-2px);
+}
 .nav-actions{display:flex;align-items:center;gap:14px}
-.nav-cta{padding:11px 20px;font-size:14px}
 
 .burger{display:none;flex-direction:column;gap:5px;background:none;border:0;cursor:pointer;padding:8px}
 .burger span{width:24px;height:2px;background:var(--text);border-radius:2px;transition:.3s var(--ease)}
 
 /* Mobile menu */
 .mobile-menu{
-  position:fixed;inset:0;z-index:99;background:rgba(6,6,7,.97);
+  position:fixed;inset:0;z-index:99;background:rgba(0,0,0,.97);
   backdrop-filter:blur(20px);display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:8px;
   opacity:0;pointer-events:none;transition:opacity .4s var(--ease);
@@ -215,6 +260,15 @@ img{max-width:100%;display:block}
   padding:12px 0;opacity:.9;
 }
 .mobile-menu .btn{margin-top:22px}
+/* LATENT CONTRAST BUG, kept fixed. `.mobile-menu a` above is specificity (0,1,1) — one class plus
+   one element — which OUTRANKS `.btn-primary` (0,1,0), so the menu's CTA silently ignored the
+   button's own var(--accent-ink) and kept var(--text). With the current dark azure accent that is
+   harmless (white-on-accent measures 5.01:1), which is exactly why it went unnoticed for so long;
+   it only became visible as a 1.53:1 failure under a bright accent. This selector is (0,2,1) so it
+   wins, and it reads the ink token rather than hardcoding a colour, so the CTA now follows
+   --accent-ink automatically whichever direction a future accent goes.
+   Colour only; the 30px/600-weight/padding from the rule above are untouched. */
+.mobile-menu a.btn-primary{color:var(--accent-ink)}
 
 /* film grain (used on .dock-stage, see .dock-stage>.grain) */
 .grain{
@@ -231,8 +285,12 @@ img{max-width:100%;display:block}
    RESPONSIVE
    ========================================================= */
 @media (max-width:860px){
-  .nav-links{display:none}
-  .nav-actions .nav-cta{display:none}
+  .nav-links{display:none}                       /* also hides the now-inline .nav-cta on mobile */
+  /* .nav-inner's justify-content:center (desktop, centers .nav-links) would otherwise re-center
+     the lone remaining flex child here too and drag the burger into the middle of the bar —
+     restoring flex-start keeps it exactly where it already was (flush against the 26px inner
+     padding, unchanged from before the desktop centering change). */
+  .nav-inner{justify-content:flex-start}
   .burger{display:flex}
   /* RESPONSIVE FIX: touch target was 40x32px (padding 8px around three 24x2px bars), a bit
      tight to tap comfortably. Bumped padding so the tappable box grows to roughly 48x42px;
@@ -248,7 +306,7 @@ img{max-width:100%;display:block}
 /* =========================================================
    SECTION 2 — EDITOR TIMELINE MOCKUP
    ========================================================= */
-.editor-sec{position:relative;padding:clamp(60px,9vw,110px) 0 90px;
+.editor-sec{position:relative;padding:clamp(38px,5.6vw,70px) 0 56px;
   background:var(--bg);}
 /* scroll hint shown during the docking intro, faded out by GSAP */
 .e-scrollhint{position:absolute;right:26px;bottom:26px;z-index:9;display:inline-flex;align-items:center;gap:9px;
@@ -281,21 +339,111 @@ img{max-width:100%;display:block}
    Reverted to the 105vh figure this comment already measured and confirmed clears in a single
    wheel tick, prioritizing "scrolls like every other section" per explicit direction over the
    smoothness tradeoff above. */
-.dock-wrap{position:relative;height:105vh;background:var(--bg)}
+/* max-height caps: height:105vh/100svh alone have no upper bound, so on any unusually tall
+   render (a full-page screenshot tool that sets the viewport to the page's whole scroll
+   height is the concrete case that surfaced this) they can balloon to thousands of pixels
+   while .editor's own content stays capped at max-height:864px. That left a large empty gap
+   below the editor, inside .dock-stage's own (transparent) box, far bigger than the fixed,
+   finite-sized ambient-glow orbs could ever reach, which is what showed as a seam right at
+   the Hero-to-About boundary in that kind of capture. Capping both at a size just past what
+   the editor's own budget (96px top clearance + 864px max content) ever needs keeps normal
+   viewports unaffected (real screens are well under this) while removing the unbounded case. */
+/* SCROLL RUNWAY = .dock-wrap height MINUS the sticky #dockStage height. That difference is the
+   entire distance the docking animation has to scrub across. At 105vh vs the stage's 100svh it was
+   ~40px (measured) — less than a single wheel notch, so the whole transition completed inside one
+   scroll event and read as a jump cut rather than an animation. The old max-height:1080px made it
+   worse by clamping the wrap while the stage kept its own 1024px cap, pinning the runway near
+   ~56px even on tall viewports.
+   260vh gives ~160vh of runway (≈1280px at a 800px viewport). Because #dockStage is position:sticky
+   this is NOT empty space the user scrolls past — the stage stays pinned and fills the screen for
+   the whole runway, which is exactly how a pinned scroll-scrub section is supposed to work (and how
+   the reference site's own pinned hero behaves). max-height is removed so the runway scales with
+   the viewport instead of collapsing on tall screens. */
+/* --dock-h is the pinned stage's height, and the runway below is a multiple of it. It is NOT a
+   plain 100svh, because .editor is capped at 864px (its rows/labels are fixed-px and do not scale
+   with the viewport, so letting it grow just stretched the video — see its max-height). At 100%
+   zoom the viewport and that cap effectively coincide (768 vs 864+24) so nothing changes, but
+   zooming out multiplies the viewport in CSS px while the cap stays put, and the two diverge hard.
+   Measured at a 3000px-tall viewport: an 864px editor inside a 3000px stage left 2124px of empty
+   pinned stage below it, and .dock-wrap's 260vh meant 2.6 full screens of scrolling before About —
+   exactly the reported gap.
+   min() keeps the stage viewport-sized until it would exceed what the content can ever fill
+   (864px editor + 12px top + 12px bottom = 888px), then holds there. The runway stays the same
+   2.6x multiple of the stage, so the scrub keeps its proportions at every zoom level and About
+   always begins right where the Hero's content actually ends. */
+/* --dock-h MUST stay the full viewport height. The full-bleed hero works by scaling the video to
+   cover the stage, so the stage's aspect ratio is what the footage gets cropped to. Capping this at
+   888px (a previous attempt at closing the gap before About) made the stage wide-and-short on any
+   large/zoomed-out viewport: measured at 5000x2800 the stage became 5000x888, aspect 5.63, so
+   covering it painted a 5000x2813 frame and cut 1925px vertically — only 31.6% of the frame left
+   visible, which is the subject's face and body being sliced off. At 100svh the stage matches the
+   screen's own aspect, so a 16:9 source covers it with essentially no crop.
+   The empty space that cap was trying to remove is handled instead by centring .editor in the
+   stage (see align-items below), so the docked mockup sits balanced rather than pinned to the top
+   with a void beneath it. */
+.dock-wrap{position:relative;--dock-h:100svh;height:calc(var(--dock-h) * 2.6)}
 /* LAYOUT FIX: real measured nav height is 82px; padding-top was 84px (2px of slack) and the
    editor's height budget only left 96-84=12px of bottom margin inside the pinned stage below
    that. That razor-thin margin is what clipped the editor's bottom (the timeline lives there)
    whenever real viewport height / svh behavior / nav height varied even slightly from the exact
    numbers this was tuned against, reading as "timeline collides with navbar, needs another
    scroll". Both margins now have real slack instead of single-digit pixels. */
-.dock-stage{position:sticky;top:0;height:100svh;overflow:hidden;display:flex;
-  align-items:flex-start;justify-content:center;padding-top:96px;   /* clear the fixed nav (82px measured) with real margin */
-  background:var(--bg)}
-.dock-stage>.grain{z-index:2;opacity:.04}
+/* padding-top was 96px purely to clear the fixed 82px navbar. The navbar is now hidden for the
+   whole Hero (it only reveals once About scrolls in — see updateNav in SmoothScroll.tsx), so that
+   clearance is dead space. Reclaiming it goes straight into .editor's height budget below, which
+   is the only lever that can make the docked video bigger: the video is object-fit:contain and
+   already height-limited (its height exactly equals the slot's, zero crop), so extra viewer height
+   is the sole way to grow it without cropping. */
+/* max-height:1024px removed — it broke every zoom level except 100%. Zooming out multiplies the
+   layout viewport in CSS pixels (at 25% zoom a 1080px-tall screen becomes a 4320px-tall viewport),
+   so 100svh grew past the cap and the stage froze at 1024px: a small box floating in a huge
+   viewport, with .dock-wrap's 260vh still measured against the real viewport. Measured at a
+   3000px-tall viewport: stage clamped to 1024px, leaving 6776px of empty space inside the wrap —
+   exactly the "shrunken hero + About pushed far down" report. The cap originally guarded against
+   absurd viewport heights from full-page screenshot tools; correctness at real zoom levels matters
+   more, and every other dimension here is already viewport-relative and scales cleanly. */
+.dock-stage{position:sticky;top:0;height:var(--dock-h,100svh);overflow:hidden;display:flex;
+  /* Centred, not top-aligned. .editor is capped at 864px while the stage is the full viewport, so
+     on a large or zoomed-out screen the leftover height has to go somewhere; splitting it evenly
+     reads as a deliberately centred mockup instead of content jammed at the top above a void.
+     padding-top is 0 because the centring now provides that clearance itself: at a 768px viewport
+     the 744px editor centres to top:12 / bottom:756 — the exact position the old 12px padding
+     produced, so nothing moves at 100% zoom. */
+  align-items:center;justify-content:center;padding-top:0;
+}
+/* WHY THE HERO LOOKED LIKE A DIFFERENT COLOUR: no section sets its own background — every one of
+   them, Hero included, shows body's var(--bg) #000000. But the Hero was the ONLY section with a
+   full-bleed film-grain overlay stretched across it (the page's other .grain is scoped to the small
+   .about-photo thumbnail). A light noise texture at .04 opacity over #000000 lifts the whole
+   section a touch, which is precisely why it read as a lighter/different charcoal next to every
+   other section's flat var(--bg). Hidden so the Hero paints the identical background colour as the
+   rest of the site, with nothing layered over it. */
+.dock-stage>.grain{display:none}
 .dock-stage>.container{position:relative;z-index:3;width:100%}
-/* AE editor window: fills the pinned viewport (minus nav clearance), fixed-height flex column */
+/* AE editor window: fills the pinned viewport, fixed-height flex column.
+   The 132px subtrahend was 96px top clearance + 36px bottom margin; with the navbar no longer
+   occupying the Hero, top clearance drops to 28px, so 64px total. Every reclaimed pixel lands in
+   .ae-viewer (the only flex:1 row) and therefore in the docked video's height. */
 .dock-stage .editor{display:flex;flex-direction:column;width:100%;max-width:1180px;
-  height:calc(100svh - 132px);max-height:864px;
+  /* ONE fixed design height at every viewport and zoom level — 1180x864 is the mockup's canonical
+     size, and fitEditorToStage() in SmoothScroll.tsx scales it (up OR down) to fit the stage.
+     It used to be calc(100svh - 24px) capped at 864, which meant the LAYOUT height changed with
+     the viewport: 864 on a tall/zoomed-out screen but only 744 at a 768px viewport. Because the
+     editor is a flex column whose other rows are fixed-px, that difference landed entirely in
+     .ae-viewer, so the internal proportions genuinely differed between zoom levels — the video was
+     734x412.9 edge-to-edge at 25% zoom but 618.7x348 with 57.7px of pillarbox at 100%.
+     Fixing the design height makes the mockup geometrically identical everywhere; only the scale
+     factor changes. It also means the side panels always get their full design space, so the
+     short-viewport row trimming in Showcase.tsx no longer has anything to trim.
+
+     809px, not 864px: the design height is chosen so that whatever is left for .ae-viewer after the
+     column's fixed rows (78px toolbars + 30px comp tabs + 258px timeline + 28px status + borders)
+     comes out at exactly 734 / (16/9) = 412.9px — the height at which a 16:9 frame fills the
+     viewer's full 734px width edge to edge. At 864px the leftover was 468px, i.e. 55px taller than
+     16:9, which object-fit:contain rendered as a 27.6px black letterbox strip above and below the
+     video. Trimming the total rather than shrinking the timeline keeps every other row intact; the
+     mockup just scales up slightly more to fill the stage. */
+  height:809px;
   padding:0;overflow:hidden;border-radius:20px;border-color:transparent}
 /* THE single moving video box, one element, one continuous transform. top/left/width/height are
    now set ONCE in JS to the video's real, native rest position (the slot it docks into); the
@@ -306,17 +454,37 @@ img{max-width:100%;display:block}
    compositing, so real (non-simulated) scroll no longer has to fight layout thrashing to look
    smooth. */
 /* ROOT CAUSE of the Hero rendering solid black instead of the site's charcoal theme: this
-   fallback was hardcoded to pure #000, not var(--bg) (#0f0f0f). This box covers the entire
+   fallback was hardcoded to pure #000, not var(--bg) (#000000). This box covers the entire
    stage (z-index:4, full-bleed) until/unless the <video> inside it is actually painting over
    it, so any gap in video coverage (slow network, autoplay blocked until interaction, or the
    poster attribute pointing at an unreliable external Google Drive hotlink that can silently
-   fail) shows this fallback color full-viewport. #000 vs the theme's #0f0f0f is a small
+   fail) shows this fallback color full-viewport. #000 vs the theme's #000000 is a small
    difference in isolation, but at full-viewport size next to every other section's consistent
    var(--bg), it reads as a distinctly different "solid black" block rather than the same
    charcoal the rest of the site uses. */
 .dock-video{position:absolute;top:0;left:0;width:100%;height:100%;z-index:4;overflow:hidden;
-  transform-origin:0 0;background:var(--bg);will-change:transform,border-radius}
+  transform-origin:0 0;will-change:transform,border-radius}
+/* contain, not cover: the docked slot's box is wider than 16:9 (measured aspect 2.76 at 1280x800,
+   3.13 at 1366x768) because the viewer panel is short, so cover was cropping the top and bottom off
+   the frame. contain keeps the whole 16:9 frame visible and pillarboxes the leftover width instead
+   — the accepted tradeoff. NOTE: the full-bleed hero still fills the screen, because
+   measureDockGeometry in SmoothScroll.tsx now derives its scale from the CONTAINED video's
+   dimensions rather than this box's; changing one without the other reintroduces edge gaps. */
+/* cover, paired with a box that is already 16:9 to within 0.15% (735x414 by design, see .editor's
+   height). contain left a sub-pixel letterbox because the viewer's integer height (414px) cannot
+   land exactly on the 413.4px a 16:9 frame needs at 735px wide — 0.28px per edge, which the dock's
+   own scale-up magnified into a visible hairline strip. cover guarantees the frame always fills its
+   box edge to edge with no empty space, and because the box's aspect is within 0.15% of the source
+   the crop is well under a pixel. Uniform scale is preserved, so nothing is ever distorted. */
 .dock-video>video{width:100%;height:100%;object-fit:cover;display:block}
+/* REMOVED: a ::after colour-grade overlay (charcoal top/bottom fade + emerald wash) used to sit
+   here at inset:0 over this box. It was the dark, low-opacity shape that appeared to sit below the
+   video and grow/shrink with scroll: its bottom stop was rgba(15,15,15,.4), it covered the whole
+   BOX rather than the painted frame, and because the box is what the scroll animation scales, the
+   band scaled along with it. Once the video became object-fit:contain the box stopped matching the
+   frame (734px box vs 618.7px of painted video when docked), so the overlay also spilled across the
+   pillarbox margins as a visible dark rectangle wider than the video itself. Deleted outright
+   rather than retuned — the grade is not worth the artefact. */
 /* reduced-motion / no-JS: collapse the extra scroll length, show docked editor statically */
 body.no-motion .dock-wrap{height:100svh}
 /* =========================================================
@@ -335,19 +503,27 @@ body.no-motion .dock-wrap{height:100svh}
   --e-line:rgba(255,255,255,.14);
   --e-line-2:rgba(255,255,255,.26);
   --e-txt:#e9edf5;
-  --e-muted:#8b93a8;
-  --e-amber:#f4c451;
-  --e-red:#e5352b;
-  --e-teal:#43d4bd;
-  --e-green:#5fd08a;
-  --e-purple:#9a86ff;
-  --e-blue:#5aa9ff;
+  --e-muted:#999999;
+  --e-amber:#94b3ff;
+  /* Was #e5352b. Only ever used to tint two timecode readouts in the mockup (.ae-tc and the
+     scrubber's current-time digits), i.e. an accent, not a semantic warning — so it goes blue with
+     the rest of the theme. Kept under the --e-red name so the mockup's markup/selectors are
+     untouched. */
+  --e-red:#6b96ff;
+  /* GREEN->BLUE: these two are the AE mockup's own layer-swatch palette, not site theme tokens,
+     but both were green-family and --e-teal is visibly on screen (the glowing status dot in the
+     mockup's status bar), so they were shifted to a blue-leaning cyan to match the rebrand.
+     --e-green is currently unreferenced; retinted anyway so it cannot reintroduce green later. */
+  --e-teal:#407fff;
+  --e-green:#6b96ff;
+  --e-purple:#6b96ff;
+  --e-blue:#6b96ff;
   --e-glass:rgba(255,255,255,.07);
   --e-glass-hi:inset 0 1px 0 rgba(255,255,255,.3),inset 0 0 0 1px rgba(255,255,255,.05);
   --e-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
   position:relative;
   margin:0 auto;
-  background:linear-gradient(180deg,#0e0f13,#08090c);
+  background:linear-gradient(180deg,#1f2021,#080808);
   border:1px solid var(--e-line);
   box-shadow:0 70px 160px -60px rgba(0,0,0,.9),0 1px 0 rgba(255,255,255,.08) inset,0 0 0 1px rgba(255,255,255,.03) inset;
   font-family:var(--e-mono);color:var(--e-txt);
@@ -356,7 +532,7 @@ body.no-motion .dock-wrap{height:100svh}
    mockup's OWN internal timeline-swatch palette (teal/blue/purple, matching --e-teal/--e-blue/
    --e-purple below) so it would read as "part of this component". That is a different goal from
    the SITE's own charcoal+emerald identity, and the top-right gradient in particular
-   (rgba(90,169,255,.4), --e-blue) sits directly behind the menu bar/toolbar (positioned at 88% 6%,
+   (rgba(107,150,255,.4), --e-blue) sits directly behind the menu bar/toolbar (positioned at 88% 6%,
    i.e. the upper-right quadrant), showing through their glass blur as a distinctly navy/blue
    area against everything else's emerald. All four stops are now the site's own --accent /
    --accent-bright emerald (varied only in position/opacity for depth), so every quadrant of the
@@ -364,16 +540,24 @@ body.no-motion .dock-wrap{height:100svh}
 .editor::before{
   content:"";position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;overflow:hidden;
   background:
-    radial-gradient(480px 360px at 12% -6%,rgba(63,163,122,.5),transparent 62%),
-    radial-gradient(420px 340px at 88% 6%,rgba(63,163,122,.4),transparent 60%),
-    radial-gradient(460px 380px at 55% 108%,rgba(46,111,82,.34),transparent 62%),
-    radial-gradient(360px 300px at 100% 100%,rgba(63,163,122,.3),transparent 60%);
+    radial-gradient(480px 360px at 12% -6%,rgba(64,127,255,.5),transparent 62%),
+    radial-gradient(420px 340px at 88% 6%,rgba(64,127,255,.4),transparent 60%),
+    radial-gradient(460px 380px at 55% 108%,rgba(0,85,255,.34),transparent 62%),
+    radial-gradient(360px 300px at 100% 100%,rgba(64,127,255,.3),transparent 60%);
   filter:blur(6px);
 }
 .editor *{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.3) transparent}
 .editor ::-webkit-scrollbar{width:7px;height:7px}
 .editor ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.26);border-radius:4px}
 .editor ::-webkit-scrollbar-track{background:transparent}
+/* The two panels that can actually render a bar inside the mockup: .ae-assets (the audio/asset
+   list beside the waveform layers) and .ae-props. The timeline's own scroller, .ae-tl-scroll,
+   is already hidden further down. Same treatment as that one: overflow stays auto so the
+   panels still scroll by wheel/drag/keyboard, only the bar's rendering is suppressed. Declared
+   after the shared .editor rules above since they carry equal specificity and would otherwise
+   win on source order. */
+.ae-assets,.ae-props{scrollbar-width:none;-ms-overflow-style:none}
+.ae-assets::-webkit-scrollbar,.ae-props::-webkit-scrollbar{display:none;width:0;height:0}
 
 /* 1+2. menu bar + toolbar (the .e-top reveal group) */
 /* position:relative (z-index:auto) so this paints above .editor::before's absolutely-positioned
@@ -387,19 +571,26 @@ body.no-motion .dock-wrap{height:100svh}
   box-shadow:var(--e-glass-hi);
   backdrop-filter:blur(28px) saturate(200%);-webkit-backdrop-filter:blur(28px) saturate(200%)}
 /* macOS-style window controls: a small, purely decorative touch that reads as "premium app
-   chrome" at a glance, matching the Apple-UI direction requested for this mockup. */
+   chrome" at a glance, matching the Apple-UI direction requested for this mockup.
+   MONOCHROME BLUE, not the literal macOS red/amber/green. Those three were the last saturated
+   non-blue colours anywhere on the site, and a lone green dot is exactly the kind of stray hue
+   that made the palette read as "mixed". Three tints of the theme blue still reads as a deliberate
+   window-control cluster. The class names (.red/.amber/.green) are intentionally left alone so the
+   mockup's markup in content/*.ts needs no change — they are now slot names, not colour names.
+   To restore realism, put the three literal macOS window-control colours (red / amber / green)
+   back on these three rules. */
 .ae-traffic{display:flex;align-items:center;gap:7px;flex:none;margin-right:2px}
 .ae-traffic i{width:11px;height:11px;border-radius:50%;display:block}
-.ae-traffic .red{background:#ff5f57;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
-.ae-traffic .amber{background:#febc2e;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
-.ae-traffic .green{background:#28c840;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.ae-traffic .red{background:#6b96ff;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.ae-traffic .amber{background:#407fff;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.ae-traffic .green{background:#0055ff;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
 .ae-logo{display:flex;align-items:center;gap:8px;font-weight:700;font-size:11px;letter-spacing:.1em;color:var(--e-txt);flex:none}
 .ae-logo .mk{width:20px;height:20px;border-radius:7px;display:grid;place-items:center;font-size:9px;font-weight:700;
-  color:#dfe3ff;background:linear-gradient(135deg,rgba(150,140,255,.55),rgba(90,169,255,.35));
-  border:1px solid rgba(200,195,255,.5);box-shadow:var(--e-glass-hi)}
+  color:#ffffff;background:linear-gradient(135deg,rgba(107,150,255,.55),rgba(107,150,255,.35));
+  border:1px solid rgba(194,211,255,.5);box-shadow:var(--e-glass-hi)}
 .ae-menu{display:flex;align-items:center;gap:1px;min-width:0;overflow:hidden}
 .ae-menu span{font-size:11px;color:var(--e-muted);padding:3px 7px;border-radius:5px;white-space:nowrap;transition:.18s}
-.ae-menu span:hover{color:var(--e-txt);background:rgba(125,145,200,.1)}
+.ae-menu span:hover{color:var(--e-txt);background:rgba(140,150,180,.1)}
 .ae-menubar .ae-tc{margin-left:auto;font-size:11px;letter-spacing:.1em;color:var(--e-muted);white-space:nowrap;flex:none}
 .ae-toolbar{display:flex;align-items:center;gap:4px;height:40px;padding:0 10px;
   border-bottom:1px solid var(--e-line);
@@ -410,8 +601,8 @@ body.no-motion .dock-wrap{height:100svh}
   border:1px solid transparent;background:none;transition:.16s}
 .ae-tool:hover{color:var(--e-txt);background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.04));
   border-color:rgba(255,255,255,.18);box-shadow:var(--e-glass-hi)}
-.ae-tool.active{color:#fff;background:linear-gradient(180deg,rgba(63,163,122,.7),rgba(46,111,82,.55));
-  border-color:rgba(120,220,180,.5);box-shadow:var(--e-glass-hi),0 4px 14px -4px rgba(63,163,122,.6)}
+.ae-tool.active{color:#fff;background:linear-gradient(180deg,rgba(64,127,255,.7),rgba(0,85,255,.55));
+  border-color:rgba(148,179,255,.5);box-shadow:var(--e-glass-hi),0 4px 14px -4px rgba(64,127,255,.6)}
 .ae-tool svg{width:14px;height:14px}
 .ae-toolsep{width:1px;height:18px;background:var(--e-line);margin:0 6px;flex:none}
 
@@ -428,8 +619,8 @@ body.no-motion .dock-wrap{height:100svh}
 .ae-assets{flex:1;overflow-y:auto;padding:6px}
 .ae-asset{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:10px;cursor:pointer;transition:.15s}
 .ae-asset:hover{background:linear-gradient(180deg,rgba(255,255,255,.1),rgba(255,255,255,.03))}
-.ae-asset.sel{background:linear-gradient(180deg,rgba(90,169,255,.28),rgba(90,169,255,.1));
-  outline:1px solid rgba(150,195,255,.4);box-shadow:var(--e-glass-hi)}
+.ae-asset.sel{background:linear-gradient(180deg,rgba(107,150,255,.28),rgba(107,150,255,.1));
+  outline:1px solid rgba(148,179,255,.4);box-shadow:var(--e-glass-hi)}
 .ae-thumb{width:30px;height:20px;border-radius:6px;flex:none;display:grid;place-items:center;overflow:hidden;
   background:rgba(255,255,255,.06);border:1px solid var(--e-line);color:var(--e-muted)}
 .ae-thumb svg{width:13px;height:13px}
@@ -444,19 +635,47 @@ body.no-motion .dock-wrap{height:100svh}
 .ae-tab{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--e-muted);padding:6px 14px;
   border-radius:100px;cursor:pointer;white-space:nowrap;transition:.2s;margin:3px 0}
 .ae-tab:hover{color:var(--e-txt)}
-.ae-tab.active{color:#fff;background:linear-gradient(180deg,rgba(90,169,255,.4),rgba(90,169,255,.16));
+.ae-tab.active{color:#fff;background:linear-gradient(180deg,rgba(107,150,255,.4),rgba(107,150,255,.16));
   box-shadow:var(--e-glass-hi)}
 .ae-tab i{width:6px;height:6px;border-radius:1px;background:var(--e-blue);flex:none}
 .ae-comp-tabs .ae-tc{margin-left:auto;font-size:11px;letter-spacing:.08em;color:var(--e-red)}
 /* the viewer frame itself gets the same colorful glow (reusing .editor's palette) blurred
    behind a dark glass letterbox, so the video frame reads as one more pane of the same glass
    system rather than a plain opaque video well. */
+/* THE fix for the docked video's shape. Measured at 1366x768: .ae-center was 734.6px wide but
+   .ae-viewer only 235px tall, so a 16:9 frame at full width needed 413px — a 178px shortfall.
+   Every prior attempt fought that shortfall from the wrong end: locking #dockSlot to 16:9 made it
+   417.8px wide inside a 734.6px center, i.e. 158.4px of dead gutter on EACH side (the "narrow with
+   empty space on both sides" report); letting it fill the center instead gave a 3.13-aspect frame
+   that crops a 16:9 source hard top and bottom.
+   The reference site (znaac.xyz, inspected live) locks every video wrapper to `aspect-video`
+   (aspect-ratio:16/9) with object-fit:cover and animates translate ONLY — it never scales a video,
+   and its containers are width-driven because that page has no fixed-height chrome competing for
+   space. Here the viewport height IS the binding constraint (.editor is calc(100svh - 132px), with
+   78px top bars + 264px timeline + 28px status of fixed chrome above/below), so the same guarantee
+   has to run the other way: take the height flex gives us, DERIVE width from it via aspect-ratio,
+   and let .ae-left/.ae-right flex outward to swallow the leftover width so it never reads as a gap.
+   Result: the frame is exactly 16:9 at every viewport, the video fills it with no letterboxing and
+   no non-uniform scale, and the mockup's panels simply get wider on short screens. */
 .ae-viewer{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:0;
   background:
-    radial-gradient(360px 280px at 20% 15%,rgba(63,163,122,.22),transparent 65%),
-    radial-gradient(320px 260px at 85% 85%,rgba(90,169,255,.18),transparent 65%),
-    #060709}
-#dockSlot{position:relative;width:100%;max-height:100%;aspect-ratio:16/9;background:transparent;
+    radial-gradient(360px 280px at 20% 15%,rgba(64,127,255,.22),transparent 65%),
+    radial-gradient(320px 260px at 85% 85%,rgba(107,150,255,.18),transparent 65%),
+    #000000}
+/* #dockSlot is an EMPTY div — the video that visually fills it is a separate,
+   absolutely-positioned element sized to match this rect (see SmoothScroll.tsx
+   measureDockGeometry). It should simply fill the viewer panel exactly: two earlier passes at
+   forcing an exact 16:9 shape either collapsed it to 0x0 (a flex item with both axes auto and no
+   content has nothing to size itself from before aspect-ratio can apply, on a short/laptop-height
+   window) or, once that was patched with a strict fit-inside-bounds formula, correctly computed
+   the largest EXACT 16:9 box that fits — which is much smaller than the (not-quite-16:9) panel,
+   leaving most of the composition viewer empty. The panel was never meant to letterbox down to a
+   literal 16:9 island; every other "16:9"/aspect-ratio reference in this mockup (the transport
+   bar's label, #dockSlot's own aspect-ratio hint) is cosmetic, and `.dock-video>video`'s existing
+   object-fit:cover already crops any real mismatch between the panel's actual shape and the
+   source footage without ever stretching it. Filling the panel is what "docked into the viewer"
+   is supposed to look like. */
+#dockSlot{position:relative;width:100%;height:100%;background:transparent;
   border-radius:10px;box-shadow:0 0 0 1px rgba(255,255,255,.08)}
 .ae-handles{position:absolute;inset:0;pointer-events:none;z-index:6}
 .ae-handles .hnd{position:absolute;width:7px;height:7px;border:1px solid rgba(255,255,255,.6);background:rgba(0,0,0,.35)}
@@ -478,15 +697,19 @@ body.no-motion .dock-wrap{height:100svh}
 /* 5. properties panel */
 .ae-right{width:232px;flex:none;display:flex;flex-direction:column;border-left:1px solid var(--e-line);min-height:0;
   background:rgba(255,255,255,.015)}
-.ae-props{flex:1;overflow-y:auto;padding:8px 10px 10px}
-.ae-prop-grp{font-size:9.5px;letter-spacing:.12em;color:var(--e-muted);text-transform:uppercase;margin:9px 0 5px}
-.ae-prop{display:flex;align-items:center;gap:9px;padding:4px 0;font-size:11px}
+.ae-props{flex:1;overflow-y:auto;padding:6px 10px 6px}
+/* Vertical rhythm tightened so the LAYER TRANSFORM panel's full content fits its box instead of
+   being clipped at the bottom (measured: 420px of content in a 336px box — 84px cut off, with the
+   Layer Tools buttons the casualty). Trimmed here rather than by scrolling, since the panel is a
+   static mockup and its labels are meant to be read at a glance. */
+.ae-prop-grp{font-size:9.5px;letter-spacing:.12em;color:var(--e-muted);text-transform:uppercase;margin:5px 0 3px}
+.ae-prop{display:flex;align-items:center;gap:9px;padding:2px 0;font-size:11px}
 .ae-sw{width:12px;height:12px;border-radius:50%;border:1px solid var(--e-line-2);flex:none;cursor:pointer;transition:.15s}
-.ae-sw:hover{border-color:var(--e-amber);box-shadow:0 0 6px rgba(244,196,81,.5)}
-.ae-sw.on{background:var(--e-amber);border-color:var(--e-amber);box-shadow:0 0 8px rgba(244,196,81,.6)}
+.ae-sw:hover{border-color:var(--e-amber);box-shadow:0 0 6px rgba(148,179,255,.5)}
+.ae-sw.on{background:var(--e-amber);border-color:var(--e-amber);box-shadow:0 0 8px rgba(148,179,255,.6)}
 .ae-prop .lbl{color:var(--e-muted);white-space:nowrap}
-.ae-prop .val{margin-left:auto;display:flex;gap:9px;color:#7fd4ff;font-variant-numeric:tabular-nums;white-space:nowrap}
-.ae-prop .val span{cursor:pointer}.ae-prop .val span:hover{color:#aee5ff}
+.ae-prop .val{margin-left:auto;display:flex;gap:9px;color:#a3bcff;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ae-prop .val span{cursor:pointer}.ae-prop .val span:hover{color:#c2d3ff}
 .ae-align{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;margin:5px 0}
 .ae-align button{aspect-ratio:1;border:1px solid var(--e-line);
   background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.02));border-radius:9px;
@@ -494,8 +717,8 @@ body.no-motion .dock-wrap{height:100svh}
 .ae-align button:hover{color:var(--e-txt);background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.05));
   box-shadow:var(--e-glass-hi)}
 .ae-align svg{width:13px;height:13px}
-.ae-ltools{display:flex;flex-direction:column;gap:6px;margin-top:5px}
-.ae-ltools button{text-align:left;font-size:11px;color:var(--e-txt);padding:9px 12px;border-radius:12px;
+.ae-ltools{display:flex;flex-direction:column;gap:4px;margin-top:3px}
+.ae-ltools button{text-align:left;font-size:11px;color:var(--e-txt);padding:6px 12px;border-radius:12px;
   border:1px solid var(--e-line);background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.015));
   cursor:pointer;transition:.15s}
 .ae-ltools button:hover{background:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.04));
@@ -517,7 +740,10 @@ body.no-motion .dock-wrap{height:100svh}
    and split .ae-tl-scroll's overflow below into overflow-x:auto (still needed for the ruler on
    narrow screens) with overflow-y:hidden, so a vertical scrollbar can't render here even if a
    future content/font change reintroduces a few px of rounding drift. */
-.e-timeline-wrap{position:relative;flex:none;height:264px;display:flex;flex-direction:column;
+/* 258px = the panel's exact content height (42px transport + 214px layer stack + slack), measured.
+   The old 264px carried dead padding; reclaiming it goes to .ae-body, which feeds both the docked
+   video's height and the properties panel. No rows are clipped — content still fits exactly. */
+.e-timeline-wrap{position:relative;flex:none;height:258px;display:flex;flex-direction:column;
   border-top:1px solid var(--e-line);background:rgba(255,255,255,.012);overflow:hidden}
 .ae-transport{display:flex;align-items:center;gap:12px;height:42px;flex:none;padding:0 12px;border-bottom:1px solid var(--e-line);
   background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.008));
@@ -528,7 +754,7 @@ body.no-motion .dock-wrap{height:100svh}
   display:grid;place-items:center;cursor:pointer;transition:.2s}
 .e-ctrls button:hover{border-color:var(--e-line-2);background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.05));
   box-shadow:var(--e-glass-hi)}
-.e-ctrls button.play{background:linear-gradient(180deg,#fff,#dfe4ee);color:#0a0f1c;border-color:transparent;width:34px;
+.e-ctrls button.play{background:linear-gradient(180deg,#fff,#dfe4ee);color:#080808;border-color:transparent;width:34px;
   box-shadow:0 4px 14px -4px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.8)}
 .e-ctrls svg{width:13px;height:13px}
 .ae-counter{font-size:11px;letter-spacing:.1em;border:1px solid var(--e-line);border-radius:100px;padding:6px 13px;
@@ -540,8 +766,8 @@ body.no-motion .dock-wrap{height:100svh}
   padding:5px 11px;cursor:pointer;transition:.15s;
   background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.01))}
 .ae-meta:hover{color:var(--e-txt);box-shadow:var(--e-glass-hi)}
-.ae-meta.on{color:#1a1408;border-color:rgba(244,196,81,.5);
-  background:linear-gradient(180deg,#ffd76b,var(--e-amber));box-shadow:var(--e-glass-hi)}
+.ae-meta.on{color:#131313;border-color:rgba(148,179,255,.5);
+  background:linear-gradient(180deg,#b8ccff,var(--e-amber));box-shadow:var(--e-glass-hi)}
 /* No visible scrollbar here: overflow-x:auto is intentional (the timeline's edge-fade below
    relies on it for narrow/mobile viewports where the row is wider than the panel), but a
    visible scrollbar bar under the compact mockup reads as a UI defect, not an affordance. The
@@ -564,10 +790,10 @@ body.no-motion .dock-wrap{height:100svh}
 @media (max-width:820px){
   .e-timeline-wrap::after{content:"";position:absolute;top:38px;right:0;bottom:0;width:26px;
     z-index:7;pointer-events:none;
-    background:linear-gradient(270deg,rgba(11,17,32,.95),transparent)}
+    background:linear-gradient(270deg,rgba(8,8,8,.95),transparent)}
 }
-.ae-row{display:grid;grid-template-columns:300px 1fr;align-items:stretch;border-bottom:1px solid rgba(125,145,200,.06)}
-/* was a hardcoded navy (#0b1120), the same off-theme-blue issue as the .editor::before glow
+.ae-row{display:grid;grid-template-columns:300px 1fr;align-items:stretch;border-bottom:1px solid rgba(140,150,180,.06)}
+/* was a hardcoded navy (#0e0e0f), the same off-theme-blue issue as the .editor::before glow
    above; var(--bg-2) matches the site's own dark-charcoal token instead. */
 .ae-colhead{position:sticky;top:0;z-index:5;background:var(--bg-2)}
 .ae-colhead .info,.ae-layer .info{display:grid;grid-template-columns:1fr 60px 58px 76px;align-items:center;
@@ -577,7 +803,7 @@ body.no-motion .dock-wrap{height:100svh}
 .ae-ruler{position:relative;display:flex;justify-content:space-between;align-items:center;height:24px;padding:0 6px;
   font-size:9px;letter-spacing:.04em;color:var(--e-muted)}
 .ae-layer .info{height:26px}
-.ae-layer:hover{background:rgba(125,145,200,.05)}
+.ae-layer:hover{background:rgba(140,150,180,.05)}
 .ae-lname{display:flex;align-items:center;gap:5px;min-width:0;padding:0 7px}
 .ae-eye,.ae-lock{width:13px;height:13px;flex:none;color:var(--e-muted);cursor:pointer;transition:.15s}
 .ae-eye:hover,.ae-lock:hover{color:var(--e-txt)}
@@ -589,22 +815,22 @@ body.no-motion .dock-wrap{height:100svh}
 .ae-bar{position:absolute;top:50%;transform:translateY(-50%);height:18px;border-radius:100px;overflow:hidden;
   display:flex;align-items:center;padding:0 9px;font-size:9px;color:rgba(255,255,255,.95);white-space:nowrap;cursor:pointer;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 0 0 1px rgba(255,255,255,.14);text-overflow:ellipsis}
-.ae-bar.vid{background:linear-gradient(180deg,rgba(244,196,81,.55),rgba(244,196,81,.24))}
-.ae-bar.vidb{background:linear-gradient(180deg,rgba(90,169,255,.55),rgba(90,169,255,.24))}
-.ae-bar.mg{background:linear-gradient(180deg,rgba(154,134,255,.58),rgba(154,134,255,.26))}
-.ae-bar.aud{background:rgba(67,212,189,.1);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),inset 0 0 0 1px rgba(67,212,189,.45)}
+.ae-bar.vid{background:linear-gradient(180deg,rgba(148,179,255,.55),rgba(148,179,255,.24))}
+.ae-bar.vidb{background:linear-gradient(180deg,rgba(107,150,255,.55),rgba(107,150,255,.24))}
+.ae-bar.mg{background:linear-gradient(180deg,rgba(64,127,255,.58),rgba(64,127,255,.26))}
+.ae-bar.aud{background:rgba(64,127,255,.1);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),inset 0 0 0 1px rgba(64,127,255,.45)}
 /* playhead (JS positions left via measured gutter) */
 .e-playhead{position:absolute;top:0;bottom:0;left:300px;width:0;z-index:6;pointer-events:none}
 .ph-line{position:absolute;top:0;bottom:0;left:0;width:1.5px;
-  background:linear-gradient(180deg,var(--e-amber),rgba(244,196,81,.2));box-shadow:0 0 10px rgba(244,196,81,.5)}
+  background:linear-gradient(180deg,var(--e-amber),rgba(148,179,255,.2));box-shadow:0 0 10px rgba(148,179,255,.5)}
 .ph-diamond{position:absolute;top:-1px;left:-4.5px;width:9px;height:9px;background:var(--e-amber);
-  transform:rotate(45deg);box-shadow:0 0 10px rgba(244,196,81,.7)}
+  transform:rotate(45deg);box-shadow:0 0 10px rgba(148,179,255,.7)}
 /* audio waveforms inside the bars */
 .wave,.wave2{position:absolute;inset:2px;display:flex;align-items:center;gap:1px;overflow:hidden;border-radius:2px;padding:0 4px}
-.wave{background:linear-gradient(180deg,rgba(67,212,189,.14),rgba(67,212,189,.04))}
-.wave i{flex:1;min-width:1px;background:rgba(67,212,189,.6);border-radius:1px}
-.wave2{background:linear-gradient(180deg,rgba(95,208,138,.14),rgba(95,208,138,.04))}
-.wave2 i{flex:1;min-width:1px;background:rgba(95,208,138,.55);border-radius:1px}
+.wave{background:linear-gradient(180deg,rgba(64,127,255,.14),rgba(64,127,255,.04))}
+.wave i{flex:1;min-width:1px;background:rgba(64,127,255,.6);border-radius:1px}
+.wave2{background:linear-gradient(180deg,rgba(107,150,255,.14),rgba(107,150,255,.04))}
+.wave2 i{flex:1;min-width:1px;background:rgba(107,150,255,.55);border-radius:1px}
 
 /* status bar */
 .e-status{position:relative;flex:none;height:28px;display:flex;align-items:center;justify-content:space-between;gap:12px;
@@ -647,17 +873,17 @@ body.no-motion .dock-wrap{height:100svh}
 /* =========================================================
    ABOUT SECTION
    ========================================================= */
-.about-sec{position:relative;padding:clamp(90px,11vw,150px) 0;background-color:transparent;overflow:hidden}
+.about-sec{position:relative;padding:clamp(56px,7vw,96px) 0;background-color:transparent;overflow:hidden}
 .about-grid{position:relative;z-index:1;display:grid;grid-template-columns:1fr 1fr;gap:clamp(36px,6vw,80px);align-items:center}
 
 /* --- left: photo card w/ spotlight lighting behind the transparent cutout --- */
 .about-photo{position:relative;aspect-ratio:4/5;border-radius:var(--radius-lg);overflow:hidden;
-  background:radial-gradient(60% 55% at 50% 0%,#14151a 0%,#0a0a0c 55%,#050506 100%);
+  background:radial-gradient(60% 55% at 50% 0%,#1f2021 0%,#080808 55%,#000000 100%);
   border:1px solid var(--line);box-shadow:0 40px 100px -40px rgba(0,0,0,.8)}
 /* the light source: a bright disc at the top + a soft downward beam (Image 3 mood) */
 .about-photo::before{
   content:"";position:absolute;left:50%;top:-6%;width:46%;aspect-ratio:1;transform:translateX(-50%);
-  background:radial-gradient(circle,rgba(255,255,255,.9) 0%,rgba(63,163,122,.35) 38%,transparent 70%);
+  background:radial-gradient(circle,rgba(255,255,255,.9) 0%,rgba(64,127,255,.35) 38%,transparent 70%);
   filter:blur(18px);opacity:.9;z-index:1;
 }
 .about-photo::after{
@@ -672,7 +898,7 @@ body.no-motion .dock-wrap{height:100svh}
 .about-photo .vignette{position:absolute;inset:0;z-index:3;pointer-events:none;
   box-shadow:inset 0 -60px 90px -40px rgba(0,0,0,.65),inset 0 60px 90px -50px rgba(0,0,0,.35);}
 .about-glow{position:absolute;left:50%;bottom:-8%;width:70%;height:26%;transform:translateX(-50%);
-  background:radial-gradient(ellipse,rgba(63,163,122,.22) 0%,transparent 70%);filter:blur(30px);z-index:0}
+  background:radial-gradient(ellipse,rgba(64,127,255,.22) 0%,transparent 70%);filter:blur(30px);z-index:0}
 
 /* --- right: copy column --- */
 .about-copy .eyebrow{margin-bottom:22px}
@@ -700,7 +926,7 @@ body.no-motion .dock-wrap{height:100svh}
 /* =========================================================
    LONG FORM PORTFOLIO SECTION
    ========================================================= */
-.lf-sec{position:relative;padding:clamp(90px,11vw,150px) 0;background-color:transparent;overflow:hidden}
+.lf-sec{position:relative;padding:clamp(56px,7vw,96px) 0;background-color:transparent;overflow:hidden}
 .lf-header{position:relative;z-index:1;max-width:760px;margin:0 auto clamp(44px,6vw,64px);text-align:center}
 .lf-header .eyebrow{justify-content:center;margin-bottom:20px}
 .lf-header h2{font-family:var(--font-display);font-weight:700;font-size:clamp(2rem,4.2vw,3.2rem);
@@ -743,7 +969,7 @@ body.no-motion .dock-wrap{height:100svh}
 html.lf-lock,html.lf-lock body{overflow:hidden}
 .lf-overlay{position:fixed;inset:0;z-index:300;visibility:hidden;pointer-events:none}
 .lf-overlay.open{visibility:visible;pointer-events:auto}
-.lf-backdrop{position:absolute;inset:0;background:rgba(4,4,6,.86);backdrop-filter:blur(6px);
+.lf-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.86);backdrop-filter:blur(6px);
   opacity:0;transition:opacity .35s var(--ease);cursor:pointer}
 .lf-overlay.open .lf-backdrop{opacity:1}
 .lf-modal{position:fixed;border-radius:16px;overflow:hidden;background:#000;
@@ -778,7 +1004,7 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
    translateY = -117px (lift), scale = 1.12, z-index → 50.
    Other cards react: pushed sideways/dimmed based on distance from hovered index.
    ========================================================= */
-.sf-sec{position:relative;padding:clamp(90px,11vw,150px) 0;background-color:transparent;overflow:hidden}
+.sf-sec{position:relative;padding:clamp(56px,7vw,96px) 0;background-color:transparent;overflow:hidden}
 /* FIX 2a: the gap was never really the header's margin (already tighter than Long Form's) —
    it was the .sf-stage box being taller than the tallest resting card, leaving dead space
    above the cards. Stage height is now driven off the same --sf-card-w custom property the
@@ -796,7 +1022,7 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
 @media (min-width:860px){.sf-stage{display:block}}
 .sf-glow{position:absolute;bottom:2%;left:50%;width:min(92%,990px);height:120px;transform:translateX(-50%);
   pointer-events:none;border-radius:50%;filter:blur(60px);
-  background:radial-gradient(ellipse,rgba(63,163,122,.07),transparent 70%)}
+  background:radial-gradient(ellipse,rgba(64,127,255,.07),transparent 70%)}
 
 /* FIX 2b: hover z-index must clear the fixed nav (z-index:100) so a lifted card renders on
    top of it instead of tucking underneath — bumped from 50 to 500 (set inline by JS below,
@@ -836,7 +1062,7 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
    SHARED SECTION SCAFFOLD (Parts 2–8)
    `.m` = the muted 2nd headline line used across every new section.
    ========================================================= */
-.sec{position:relative;padding:clamp(90px,11vw,150px) 0;background-color:transparent;overflow:hidden}
+.sec{position:relative;padding:clamp(56px,7vw,96px) 0;background-color:transparent;overflow:hidden}
 .sec-head{position:relative;z-index:1;max-width:720px;margin:0 auto clamp(40px,6vw,60px);text-align:center}
 .sec-head .eyebrow{justify-content:center;margin-bottom:20px}
 .sec-head h2{font-family:var(--font-display);font-weight:700;font-size:clamp(2rem,4.2vw,3.2rem);
@@ -845,7 +1071,7 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
 .sec-sub{color:var(--muted);font-size:clamp(.98rem,1.3vw,1.08rem);line-height:1.6;max-width:600px;margin:0 auto}
 
 /* =========================================================
-   PART 2 + 5 — INFINITE MARQUEE (thumbnails + testimonials)
+   PART 2 — INFINITE MARQUEE (thumbnails; generic, reused by any .marquee row)
    Seamless technique: the track holds the set TWICE; it animates translateX 0 → -50%,
    so at the loop point the second copy sits exactly where the first began → no jump.
    Direction flips by swapping which end the keyframe starts from.
@@ -859,8 +1085,8 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
 .marquee{position:relative;overflow:hidden;width:100%}
 .marquee::before,.marquee::after{content:"";position:absolute;top:0;bottom:0;width:clamp(60px,12vw,180px);
   z-index:2;pointer-events:none}
-.marquee::before{left:0;background:linear-gradient(90deg,var(--bg) 0%,rgba(6,6,7,.85) 40%,transparent 100%)}
-.marquee::after{right:0;background:linear-gradient(270deg,var(--bg) 0%,rgba(6,6,7,.85) 40%,transparent 100%)}
+.marquee::before{left:0;background:linear-gradient(90deg,var(--bg) 0%,rgba(0,0,0,.85) 40%,transparent 100%)}
+.marquee::after{right:0;background:linear-gradient(270deg,var(--bg) 0%,rgba(0,0,0,.85) 40%,transparent 100%)}
 .marquee + .marquee{margin-top:clamp(16px,2.2vw,24px)}
 /* ZOOM FIX: the loop distance used to be a bare `-50%`, a CSS percentage resolved against the
    track's own COMPOSITED rendered width. Same root cause already documented/fixed in
@@ -895,7 +1121,7 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
 .thumb-card{flex:none;width:clamp(260px,42vw,620px);aspect-ratio:16/9;border-radius:16px;overflow:hidden;
   border:1px solid var(--line);background:var(--surface);box-shadow:0 22px 50px -24px rgba(0,0,0,.8);
   transition:border-color .3s}
-.thumb-card:hover{border-color:rgba(63,163,122,.4)}
+.thumb-card:hover{border-color:rgba(64,127,255,.4)}
 .thumb-card img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .6s var(--ease)}
 .thumb-card:hover img{transform:scale(1.06)}
 
@@ -909,9 +1135,9 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
   background:linear-gradient(180deg,var(--surface-2),var(--surface));
   border:1px solid var(--line);
   box-shadow:0 24px 50px -32px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.02) inset}
-.stage-card,.svc-card,.tm-card,.thumb-card,.contact-item{position:relative;overflow:hidden}
+.stage-card,.svc-card,.thumb-card,.contact-item{position:relative;overflow:hidden}
 .stage-card::before{content:"";position:absolute;top:0;left:8%;right:8%;height:1px;
-  background:linear-gradient(90deg,transparent,rgba(63,163,122,.75),transparent)}
+  background:linear-gradient(90deg,transparent,rgba(64,127,255,.75),transparent)}
 .stage-top{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px}
 /* 3D icon badge: a diagonal emerald gradient (light corner to dark corner) plus a layered
    inset highlight/shadow (glossy top sheen + rounded-off bottom edge) and a soft outer drop
@@ -920,12 +1146,12 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
    magnifying glass, edit/motion-graphics squares, delivery paper-plane). Was a flat translucent
    blue tint before this pass; recolored into the emerald family for sitewide cohesion. */
 .stage-icon{width:46px;height:46px;flex:none;border-radius:13px;display:grid;place-items:center;
-  background:linear-gradient(135deg,var(--accent-bright),var(--accent) 65%,#1d4a37 100%);
-  box-shadow:0 10px 22px -9px rgba(46,111,82,.6),inset 0 1px 0 rgba(255,255,255,.35),inset 0 -3px 6px -2px rgba(0,0,0,.35);
+  background:linear-gradient(135deg,var(--accent-bright),var(--accent) 65%,#002a80 100%);
+  box-shadow:0 10px 22px -9px rgba(0,85,255,.6),inset 0 1px 0 rgba(255,255,255,.35),inset 0 -3px 6px -2px rgba(0,0,0,.35);
   color:#fff}
 .stage-icon svg{width:22px;height:22px}
 .stage-pill{font-family:var(--font-display);font-size:11.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
-  color:var(--accent-bright);padding:6px 13px;border-radius:100px;background:rgba(63,163,122,.12);border:1px solid rgba(63,163,122,.28)}
+  color:var(--accent-bright);padding:6px 13px;border-radius:100px;background:rgba(64,127,255,.12);border:1px solid rgba(64,127,255,.28)}
 .stage-card h3{font-family:var(--font-display);font-weight:700;font-size:clamp(1.2rem,1.8vw,1.4rem);
   letter-spacing:-.01em;margin-bottom:10px}
 .stage-card p{color:var(--muted);font-size:15px;line-height:1.6}
@@ -940,12 +1166,35 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
 .hiw-media-wrap{position:relative}
 .hiw-media{position:relative;border-radius:22px;overflow:hidden;aspect-ratio:3/4;
   border:1px solid var(--line);box-shadow:0 40px 90px -40px rgba(0,0,0,.8)}
+/* RESPONSIVE FIX: on desktop (>=901px, the only width where HowIWork.tsx actually pins this box
+   with GSAP ScrollTrigger — see `mm.add("(min-width: 901px)", ...)`), .hiw-media's height was
+   driven purely by the grid column's WIDTH via aspect-ratio:3/4, with nothing tying it to the
+   viewport's own height. GSAP's pin measures and locks in .hiw-media-wrap's real rendered size
+   (confirmed live: a 1323x520 laptop-ish viewport produced a 536x714px pinned box — 714px tall
+   inside a 520px-tall window), so on any laptop/short-viewport screen the pinned image is simply
+   taller than the browser window and gets cut off top/bottom.
+   The clamp lives on .hiw-media-wrap (the actual pin target) rather than .hiw-media, so GSAP's
+   measurement is correct outright; .hiw-media then just fills it at 100%. (An earlier version of
+   this fix clamped .hiw-media directly and tried to shrink-wrap the wrap around it via
+   `width:fit-content` — that created a circular percentage-vs-shrink-to-fit sizing loop, since
+   .hiw-media's own width:100% has nothing to resolve against inside a fit-content parent, and
+   both collapsed to ~1px. Clamping the wrap directly and letting the child be a plain 100% avoids
+   that entirely.)
+   width:min(...) caps the wrap's width (and therefore, via .hiw-media's aspect-ratio:3/4, its
+   height) so height never exceeds the available viewport height (100svh minus the pin's own
+   "top 110px" start offset plus a little breathing room), while still filling the full grid
+   column width whenever that's the tighter constraint (i.e. on tall/desktop viewports this is a
+   no-op — min(100%, ...) just resolves to 100% as before). Mobile (<=900px, where the image is
+   static/stacked, not pinned, so this bug doesn't apply) is untouched. */
+@media (min-width:901px){
+  .hiw-media-wrap{width:min(100%,calc((100svh - 150px) * 3 / 4))}
+}
 .hiw-media img{width:100%;height:100%;object-fit:cover;display:block}
 /* FIX 4c: 4 images stacked in the same box, only the active one opaque, box never moves */
 .hiw-img{position:absolute;inset:0;opacity:0;transition:opacity .6s var(--ease);z-index:0}
 .hiw-img.active{opacity:1;z-index:1}
 .hiw-media-glow{position:absolute;left:50%;bottom:-8%;width:70%;height:24%;transform:translateX(-50%);
-  background:radial-gradient(ellipse,rgba(63,163,122,.28),transparent 70%);filter:blur(34px);z-index:-1}
+  background:radial-gradient(ellipse,rgba(64,127,255,.28),transparent 70%);filter:blur(34px);z-index:-1}
 @media (max-width:900px){
   .hiw-grid{grid-template-columns:1fr;gap:32px}
   .hiw-media-wrap{position:static;order:-1;max-width:440px;margin:0 auto}
@@ -959,13 +1208,13 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
   backdrop-filter:blur(16px) saturate(140%);-webkit-backdrop-filter:blur(16px) saturate(140%);
   border:1px solid var(--line);box-shadow:0 24px 50px -32px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.06);
   transition:transform .5s var(--ease),border-color .3s,background .3s,box-shadow .5s var(--ease);overflow:hidden}
-.svc-card:hover{transform:translateY(-6px);border-color:rgba(63,163,122,.4);background:var(--surface-2);
-  box-shadow:0 24px 60px -30px rgba(63,163,122,.4)}
+.svc-card:hover{transform:translateY(-6px);border-color:rgba(64,127,255,.4);background:var(--surface-2);
+  box-shadow:0 24px 60px -30px rgba(64,127,255,.4)}
 /* Same 3D glossy-badge treatment as How I Work's .stage-icon, on Services' already
    content-relevant glyphs (long-form camera/play, short-form lightning bolt, thumbnail image). */
 .svc-icon{width:54px;height:54px;border-radius:50%;display:grid;place-items:center;margin-bottom:22px;
-  background:linear-gradient(135deg,var(--accent-bright),var(--accent) 65%,#1d4a37 100%);
-  box-shadow:0 10px 24px -9px rgba(46,111,82,.6),inset 0 1px 0 rgba(255,255,255,.35),inset 0 -3px 6px -2px rgba(0,0,0,.35);
+  background:linear-gradient(135deg,var(--accent-bright),var(--accent) 65%,#002a80 100%);
+  box-shadow:0 10px 24px -9px rgba(0,85,255,.6),inset 0 1px 0 rgba(255,255,255,.35),inset 0 -3px 6px -2px rgba(0,0,0,.35);
   color:#fff}
 .svc-icon svg{width:24px;height:24px}
 .svc-arrow{position:absolute;top:clamp(26px,2.6vw,34px);right:clamp(26px,2.6vw,34px);color:var(--muted-2);
@@ -976,29 +1225,6 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
   letter-spacing:-.01em;margin-bottom:12px;padding-right:26px}
 .svc-card p{color:var(--muted);font-size:15px;line-height:1.65}
 @media (max-width:860px){.svc-grid{grid-template-columns:1fr}}
-
-/* =========================================================
-   PART 5 — TESTIMONIALS (reuses .marquee)
-   FIX 7a: same bigger-card / edge-fade treatment as Fix 3's thumbnail rows, sized so ~2 cards
-   sit fully in view and a 3rd is genuinely cut by the container edge into the gradient fade.
-   ========================================================= */
-/* RESPONSIVE FIX: same issue and fix as .thumb-card above, min lowered 380px -> 240px so it
-   fits comfortably inside a phone viewport with room for a peek; 38vw/460px unchanged so
-   tablet/desktop sizing is identical to before. */
-.tm-card{flex:none;width:clamp(240px,38vw,460px);border-radius:20px;padding:30px;
-  background:rgba(26,26,26,.55);backdrop-filter:blur(16px) saturate(140%);-webkit-backdrop-filter:blur(16px) saturate(140%);
-  border:1px solid var(--line);box-shadow:0 24px 50px -32px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.06);display:flex;flex-direction:column;gap:14px;
-  transition:transform .4s var(--ease),border-color .3s,box-shadow .4s var(--ease)}
-.tm-card:hover{transform:translateY(-4px);border-color:rgba(63,163,122,.35);
-  box-shadow:0 20px 50px -28px rgba(63,163,122,.35)}
-.tm-stars{color:var(--accent);letter-spacing:2px;font-size:14px}
-.tm-quote{color:var(--text);font-size:15px;line-height:1.6;opacity:.92}
-.tm-who{display:flex;align-items:center;gap:12px;margin-top:auto}
-.tm-avatar{width:44px;height:44px;border-radius:50%;flex:none;overflow:hidden;
-  background:linear-gradient(135deg,#2a2a30,#111114);border:1px solid var(--line-2)}
-.tm-avatar img{width:100%;height:100%;object-fit:cover;display:block}
-.tm-name{font-family:var(--font-display);font-weight:600;font-size:15px}
-.tm-role{color:var(--muted-2);font-size:12.5px;margin-top:2px}
 
 /* =========================================================
    PART 6 — FAQ (rebuilt: centered header, single-column divided-row list, no image)
@@ -1055,13 +1281,13 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
 .contact-item{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:14px;
   text-decoration:none;border:1px solid var(--line);background:var(--surface-2);
   transition:transform .4s var(--ease),border-color .3s,background .3s,box-shadow .4s var(--ease)}
-.contact-item:hover{transform:translateY(-3px);border-color:rgba(63,163,122,.4);background:rgba(63,163,122,.05);
-  box-shadow:0 16px 40px -24px rgba(63,163,122,.4)}
-.contact-item:hover .contact-item-icon{box-shadow:0 12px 26px -8px rgba(46,111,82,.75),inset 0 1px 0 rgba(255,255,255,.4),inset 0 -3px 6px -2px rgba(0,0,0,.3)}
+.contact-item:hover{transform:translateY(-3px);border-color:rgba(64,127,255,.4);background:rgba(64,127,255,.05);
+  box-shadow:0 16px 40px -24px rgba(64,127,255,.4)}
+.contact-item:hover .contact-item-icon{box-shadow:0 12px 26px -8px rgba(0,85,255,.75),inset 0 1px 0 rgba(255,255,255,.4),inset 0 -3px 6px -2px rgba(0,0,0,.3)}
 .contact-item-icon{width:44px;height:44px;flex:none;border-radius:12px;
   display:flex;align-items:center;justify-content:center;transition:box-shadow .3s;
-  background:linear-gradient(135deg,var(--accent-bright),var(--accent) 65%,#1d4a37 100%);
-  box-shadow:0 8px 18px -8px rgba(46,111,82,.55),inset 0 1px 0 rgba(255,255,255,.35),inset 0 -3px 6px -2px rgba(0,0,0,.35);
+  background:linear-gradient(135deg,var(--accent-bright),var(--accent) 65%,#002a80 100%);
+  box-shadow:0 8px 18px -8px rgba(0,85,255,.55),inset 0 1px 0 rgba(255,255,255,.35),inset 0 -3px 6px -2px rgba(0,0,0,.35);
   color:#fff}
 .contact-item-icon svg{width:22px;height:22px;display:block;flex:none}
 .contact-item-icon svg.ic-whatsapp{width:19px;height:19px}
@@ -1143,4 +1369,261 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
   gap:10px;padding-top:18px;border-top:1px solid var(--line)}
 .footer-copy{color:var(--muted-2);font-size:13px}
 .footer-tagline{color:var(--muted-2);font-size:13px}
+
+
+/* =========================================================
+   SITE-WIDE GLASS CARDS + PER-SECTION IDENTITY
+   Appended last so it layers on top of each component's own rule without editing it.
+
+   The material is lifted from the AE editor's glass panels so the whole site reads as the same
+   substance: a top-to-bottom white wash (brighter at the top edge, where light lands),
+   backdrop-filter blur + saturate so what is behind genuinely refracts through, a 1px bright
+   top-edge highlight plus a hairline ring via inset box-shadow, and a soft coloured outer bloom.
+
+   Section identity comes from two variables rather than from different materials, so every card
+   is unmistakably the same component family while each section still reads as its own place:
+     --sec-accent : the hue of that section's bloom, border-lift and chips
+     --sec-bloom  : where the light appears to fall inside the card, so the sheen sits in a
+                    different corner section to section
+   Hues are the timeline's own swatch palette (emerald / teal / blue / amber / green / purple),
+   which is what keeps the variation feeling native rather than arbitrary.
+
+   ONLY colour-ish properties are set below — background, border-color, box-shadow,
+   backdrop-filter, color. No sizes, spacing, radii, or positioning are touched anywhere, and
+   borders are set via border-color on elements that already have a 1px border, so no box-model
+   value changes.
+   ========================================================= */
+:root{
+  --sec-accent:64,127,255;
+  --sec-bloom:12% 0%;
+  --glass-wash:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.018));
+  --glass-rim:inset 0 1px 0 rgba(255,255,255,.26),inset 0 0 0 1px rgba(255,255,255,.05);
+  --glass-drop:0 24px 58px -34px rgba(0,0,0,.75);
+  --glass-blur:blur(24px) saturate(180%);
+}
+/* These were originally SIX different hues (emerald / teal / blue / amber / green / purple) to
+   give each section its own identity. That variety is what made the page read as "mixed and off"
+   rather than themed, so they are now all tints of the one azure family (hue ~206-215), varying
+   only in lightness so the sections still differ subtly without introducing a second colour.
+   #process is called out because it tints the "STAGE n" pills — it was the most visible stray hue
+   of the original set. To reintroduce variety later, change these values only; every consumer
+   below reads them through var(--sec-accent). */
+#about       {--sec-accent:64,127,255;  --sec-bloom:12% 0%}
+#work        {--sec-accent:64,127,255;  --sec-bloom:100% 0%}
+#shorts      {--sec-accent:107,150,255;  --sec-bloom:0% 100%}
+#thumbnails  {--sec-accent:148,179,255;  --sec-bloom:100% 100%}
+#process     {--sec-accent:64,127,255;  --sec-bloom:50% -10%}
+#services    {--sec-accent:64,127,255; --sec-bloom:0% 0%}
+#faq         {--sec-accent:107,150,255;  --sec-bloom:50% 110%}
+#contact     {--sec-accent:64,127,255;  --sec-bloom:8% 100%}
+
+/* Cards proper: full glass. */
+.stage-card,
+.svc-card,
+.contact-item{
+  background:
+    radial-gradient(120% 92% at var(--sec-bloom),rgba(var(--sec-accent),.15),transparent 62%),
+    var(--glass-wash);
+  border-color:rgba(255,255,255,.14);
+  box-shadow:var(--glass-rim),var(--glass-drop),0 0 30px -18px rgba(var(--sec-accent),.55);
+  backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);
+}
+.stage-card:hover,
+.svc-card:hover,
+.contact-item:hover{
+  border-color:rgba(var(--sec-accent),.45);
+  box-shadow:var(--glass-rim),0 28px 64px -32px rgba(0,0,0,.78),
+             0 0 42px -14px rgba(var(--sec-accent),.7);
+}
+/* the thin light seam across each stage card's top edge, retinted to its section */
+.stage-card::before{
+  background:linear-gradient(90deg,transparent,rgba(var(--sec-accent),.75),transparent);
+}
+
+/* Chips and badges inside cards pick up the same hue so a section reads as one palette. */
+.stage-pill{
+  color:rgba(var(--sec-accent),1);
+  background:rgba(var(--sec-accent),.12);
+  border-color:rgba(var(--sec-accent),.3);
+}
+.stage-tag{
+  background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.015));
+  border-color:rgba(255,255,255,.14);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18);
+  backdrop-filter:blur(12px) saturate(160%);-webkit-backdrop-filter:blur(12px) saturate(160%);
+}
+
+/* Media tiles are covered edge-to-edge by their own image/video, so an inset rim would sit
+   beneath that content and never show — they take the edge line and outer bloom only. */
+.lf-tile,
+.thumb-card,
+.sf-m-card{
+  border-color:rgba(255,255,255,.14);
+  box-shadow:var(--glass-drop),0 0 30px -18px rgba(var(--sec-accent),.55);
+}
+.lf-tile:hover,
+.thumb-card:hover{
+  border-color:rgba(var(--sec-accent),.5);
+  box-shadow:0 28px 64px -32px rgba(0,0,0,.78),0 0 42px -14px rgba(var(--sec-accent),.7);
+}
+
+/* FAQ is a divider list, not a panel — tinting its rule keeps the section's identity without
+   turning rows into cards (which would need padding, i.e. a layout change). */
+.faq-item{border-bottom-color:rgba(var(--sec-accent),.22)}
+.faq-item.open{border-bottom-color:rgba(var(--sec-accent),.45)}
+
+/* Marquee rows clip their overflow so the looping track's ends stay hidden. That same clip was
+   also slicing hover-lifted cards inside a marquee row: a card that lifts via translateY(-4px) on
+   hover has its bloom extend past its own border, so the top edge and glow were cut off flat
+   against the black background.
+   overflow:clip + overflow-clip-margin keeps the clip exactly where it was but lets painting
+   spill a little past it, which is precisely what this needs — unlike a padding gutter it changes
+   no box-model value, so row heights, the gap between rows, and the track geometry are untouched.
+   Horizontal spill is a non-issue: the parent .sec is itself overflow:hidden, and the row's own
+   ::before/::after edge fades still sit at its real edges. */
+.marquee{overflow:clip;overflow-clip-margin:60px}
+
+/* =========================================================
+   SCROLL-TRIGGERED 3D REVEALS
+   Built on the .reveal / .in mechanism that already exists — the IntersectionObserver in
+   SmoothScroll.tsx adds .in once, and every element that should animate is already tagged in the
+   content files with .reveal plus a .d1-.d5 stagger. No observers, no per-frame work, no markup
+   changes: this only enriches what the existing transition already animates.
+
+   PERFORMANCE: every rule animates ONLY `transform` and `opacity`, both compositor properties, so
+   nothing below triggers layout or paint while scrolling. Perspective lives inside each element's
+   own transform rather than on an ancestor, so no section wrapper becomes a 3D/stacking context.
+   `will-change` is deliberately unset — these fire once per element, and promoting dozens of
+   cards to permanent layers would cost far more than it saves.
+
+   TRANSITION LONGHANDS, NOT THE SHORTHAND: `transition:` also resets transition-delay, which
+   silently wiped the .d1-.d5 stagger (every card measured 0s and fired simultaneously). Using the
+   longhands leaves transition-delay untouched so the existing stagger classes keep working.
+   ========================================================= */
+
+/* Baseline: the existing rise gains a little depth. */
+.reveal{transform:perspective(1000px) translate3d(0,26px,-30px)}
+.reveal.in{transform:perspective(1000px) translate3d(0,0,0)}
+
+/* SERVICES — 3D card reveal: cards hinge up from their top edge out of depth, staggered by the
+   existing d1/d2, so the grid assembles itself instead of fading in as one block. */
+#services .svc-card.reveal{
+  transform:perspective(1100px) rotateX(10deg) translate3d(0,38px,-70px);
+  transform-origin:50% 0%;
+  transition-property:opacity,transform,border-color,background,box-shadow;
+  transition-duration:1s,1s,.3s,.3s,.5s;
+  transition-timing-function:var(--ease),var(--ease),ease,ease,var(--ease);
+}
+#services .svc-card.reveal.in{transform:perspective(1100px) rotateX(0deg) translate3d(0,0,0)}
+
+/* PROCESS — a vertical column beside the media, so the stages swing in on a Y hinge. */
+#process .stage-card.reveal{
+  transform:perspective(1200px) rotateY(-7deg) translate3d(-28px,22px,-55px);
+  transform-origin:0% 50%;
+  transition-property:opacity,transform,border-color,background,box-shadow;
+  transition-duration:1s,1s,.3s,.3s,.5s;
+  transition-timing-function:var(--ease),var(--ease),ease,ease,var(--ease);
+}
+#process .stage-card.reveal.in{transform:perspective(1200px) rotateY(0deg) translate3d(0,0,0)}
+
+/* ABOUT — the portrait settles forward out of depth while the copy rises, giving the two columns
+   a parallax-like offset without any scroll-linked math. */
+#about .about-photo.reveal{
+  transform:perspective(1200px) scale(1.05) translate3d(0,18px,-90px);
+  transition-property:opacity,transform;
+  transition-duration:1.15s;transition-timing-function:var(--ease);
+}
+#about .about-photo.reveal.in{transform:perspective(1200px) scale(1) translate3d(0,0,0)}
+#about .bio.reveal,#about .about-points.reveal,#about .about-actions.reveal{
+  transform:perspective(1000px) translate3d(0,30px,-40px);
+}
+#about .bio.reveal.in,#about .about-points.reveal.in,#about .about-actions.reveal.in{
+  transform:perspective(1000px) translate3d(0,0,0);
+}
+
+/* WORK — the tile grid pulls forward out of depth as one plane, echoing how the hero video
+   scales rather than slides. */
+#work .lf-grid.reveal{
+  transform:perspective(1300px) scale(.95) translate3d(0,20px,-100px);
+  transition-property:opacity,transform;
+  transition-duration:1.1s;transition-timing-function:var(--ease);
+}
+#work .lf-grid.reveal.in{transform:perspective(1300px) scale(1) translate3d(0,0,0)}
+
+/* SHORTS — portrait content, so it rises taller and closer, mirroring its framing. */
+#shorts .sf-stage.reveal,#shorts .sf-mobile.reveal{
+  transform:perspective(1200px) scale(.96) translate3d(0,42px,-80px);
+  transition-property:opacity,transform;
+  transition-duration:1.05s;transition-timing-function:var(--ease);
+}
+#shorts .sf-stage.reveal.in,#shorts .sf-mobile.reveal.in{
+  transform:perspective(1200px) scale(1) translate3d(0,0,0);
+}
+
+/* THUMBNAILS — this row already carries its own marquee motion, so the entry is the most
+   restrained on the site: a shallow tilt up from below, no scale, so it never fights the
+   movement already happening inside it. */
+#thumbnails .marquee.reveal{
+  transform:perspective(1400px) rotateX(6deg) translate3d(0,30px,-50px);
+  transform-origin:50% 100%;
+  transition-property:opacity,transform;
+  transition-duration:1.1s;transition-timing-function:var(--ease);
+}
+#thumbnails .marquee.reveal.in{
+  transform:perspective(1400px) rotateX(0deg) translate3d(0,0,0);
+}
+
+/* FAQ tags the whole list (not each row), so the hinge belongs on the list. */
+#faq .faq-list.reveal{
+  transform:perspective(1100px) rotateX(7deg) translate3d(0,26px,-50px);
+  transform-origin:50% 0%;
+  transition-property:opacity,transform;
+  transition-duration:1s;transition-timing-function:var(--ease);
+}
+#faq .faq-list.reveal.in{transform:perspective(1100px) rotateX(0deg) translate3d(0,0,0)}
+
+/* CONTACT — list rows, lightest touch. Its own rule omitted opacity from the transition, so the
+   items used to pop rather than fade; included explicitly here. */
+#contact .contact-item.reveal{
+  transform:perspective(1000px) rotateX(7deg) translate3d(0,22px,-40px);
+  transform-origin:50% 0%;
+  transition-property:opacity,transform,border-color,background,box-shadow;
+  transition-duration:.9s,.9s,.3s,.3s,.4s;
+  transition-timing-function:var(--ease),var(--ease),ease,ease,var(--ease);
+}
+#contact .contact-item.reveal.in{transform:perspective(1000px) rotateX(0deg) translate3d(0,0,0)}
+
+/* Section headers everywhere share one gesture, tying the varied section effects into a system. */
+.sec-head .reveal,.sec-head.reveal{transform:perspective(900px) translate3d(0,22px,-25px)}
+.sec-head .reveal.in,.sec-head.reveal.in{transform:perspective(900px) translate3d(0,0,0)}
+
+/* Reduced motion: the base .reveal resets in the RESPONSIVE block, but these rules are more
+   specific and would otherwise win, so every variant is neutralised explicitly. */
+@media (prefers-reduced-motion:reduce){
+  .reveal,.reveal.in,
+  #services .svc-card.reveal,#services .svc-card.reveal.in,
+  #process .stage-card.reveal,#process .stage-card.reveal.in,
+  #about .about-photo.reveal,#about .about-photo.reveal.in,
+  #about .bio.reveal,#about .about-points.reveal,#about .about-actions.reveal,
+  #about .bio.reveal.in,#about .about-points.reveal.in,#about .about-actions.reveal.in,
+  #work .lf-grid.reveal,#work .lf-grid.reveal.in,
+  #shorts .sf-stage.reveal,#shorts .sf-mobile.reveal,
+  #shorts .sf-stage.reveal.in,#shorts .sf-mobile.reveal.in,
+  #thumbnails .marquee.reveal,#thumbnails .marquee.reveal.in,
+  #faq .faq-list.reveal,#faq .faq-list.reveal.in,
+  #contact .contact-item.reveal,#contact .contact-item.reveal.in,
+  .sec-head .reveal,.sec-head.reveal,.sec-head .reveal.in,.sec-head.reveal.in{
+    opacity:1!important;transform:none!important;transition:none!important;
+  }
+}
+
+/* .svc-card and .contact-item each declare their own `transition` shorthand LATER in this file
+   than the .d1-.d5 helpers, so that shorthand's implicit delay:0s beat the stagger at equal
+   specificity (.stage-card and .lf-grid have no such shorthand, which is why they staggered
+   correctly and these two did not). Restated here at ID specificity.
+   The delay list is per-property: only opacity and transform are delayed, so hover colour
+   response stays immediate rather than lagging by up to a quarter second. */
+#services .svc-card.reveal.d1,#contact .contact-item.reveal.d1{transition-delay:.05s,.05s,0s,0s,0s}
+#services .svc-card.reveal.d2,#contact .contact-item.reveal.d2{transition-delay:.14s,.14s,0s,0s,0s}
+#services .svc-card.reveal.d3,#contact .contact-item.reveal.d3{transition-delay:.23s,.23s,0s,0s,0s}
 

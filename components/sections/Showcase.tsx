@@ -83,8 +83,61 @@ export default function Showcase() {
     };
     if (vid && playBtn) playBtn.addEventListener("click", onPlay);
 
+    /* ---- clean truncation for the side panels ----
+       The editor is a fixed-height flex column, so on short viewports the Project and Layer
+       Transform panels get less room than their content needs and the last rows render as
+       half-cut slivers. Measured at 1366x640: the Project list overflowed by 45px (Precomps 77%
+       visible, Lower3rd.png fully hidden) and the properties panel by 123px (Create Null 48%
+       visible, the other three Layer Tools buttons entirely out of view).
+       Rather than shrink the video to make room, drop whole rows that cannot render in full, so
+       each list simply ends on a complete row. All bounds are read BEFORE anything is hidden —
+       hiding a row shifts the ones below it, so measuring as we go would let already-doomed rows
+       creep back into view and flicker. */
+    function trimPanel(container: Element | null, itemSel: string) {
+      if (!container) return;
+      const items = Array.from(container.querySelectorAll<HTMLElement>(itemSel));
+      items.forEach((el) => el.style.removeProperty("display"));
+      const cb = container.getBoundingClientRect();
+      const overflowing = items.filter((el) => el.getBoundingClientRect().bottom > cb.bottom + 0.5);
+      overflowing.forEach((el) => (el.style.display = "none"));
+      // A group heading whose rows all just disappeared would otherwise sit there labelling
+      // nothing, which looks more broken than the truncation did.
+      Array.from(container.querySelectorAll<HTMLElement>(".ae-prop-grp")).forEach((grp) => {
+        let n = grp.nextElementSibling as HTMLElement | null;
+        let hasVisibleContent = false;
+        while (n && !n.classList.contains("ae-prop-grp")) {
+          // offsetHeight, not the display flag: the Layer Tools rows live inside an .ae-ltools
+          // wrapper, so hiding every button leaves that wrapper still "displayed" but collapsed to
+          // zero height — checking display alone kept the heading above an empty group.
+          if (n.offsetHeight > 0) hasVisibleContent = true;
+          n = n.nextElementSibling as HTMLElement | null;
+        }
+        grp.style.display = hasVisibleContent ? "" : "none";
+      });
+    }
+    function trimPanels() {
+      trimPanel(ed!.querySelector(".ae-assets"), ".ae-asset");
+      trimPanel(ed!.querySelector(".ae-props"), ".ae-prop, .ae-align, .ae-ltools button");
+    }
+
+    // Same settling caveat as the dock geometry: panel heights are not final on the first frame
+    // (svh, webfonts, flex resolution), so trim across a few frames and once fonts land.
+    let trimFrames = 0;
+    let trimRaf = 0;
+    const settleTrim = () => {
+      trimPanels();
+      if (++trimFrames < 6) trimRaf = requestAnimationFrame(settleTrim);
+    };
+    trimRaf = requestAnimationFrame(settleTrim);
+    if (document.fonts?.ready) document.fonts.ready.then(trimPanels).catch(() => {});
+    // On resize the panels may regain height, so re-run from scratch (trimPanel resets first).
+    const onTrimResize = () => trimPanels();
+    addEventListener("resize", onTrimResize);
+
     return () => {
       cancelAnimationFrame(raf);
+      cancelAnimationFrame(trimRaf);
+      removeEventListener("resize", onTrimResize);
       if (vid && playBtn) playBtn.removeEventListener("click", onPlay);
     };
   }, []);
