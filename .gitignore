@@ -12,6 +12,3 @@ yarn-error.log*
 *.tsbuildinfo
 
 .vercel
-
-# large video assets, hosted elsewhere rather than pushed to the repo
-public/*.mp4
