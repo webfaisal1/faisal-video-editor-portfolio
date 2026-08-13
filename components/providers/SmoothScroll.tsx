@@ -171,31 +171,6 @@ export default function SmoothScroll({ children }: { children: React.ReactNode }
     addEventListener("resize", updateMarquees);
     cleanupFns.push(() => removeEventListener("resize", updateMarquees));
 
-    /* ---- top-of-page scroll progress bar ----
-       Deliberately standalone (own listeners, not nested in the hero/reduce branches below): it
-       has to work regardless of whether the hero refs above resolve and regardless of the
-       prefers-reduced-motion path, so it gets a single native `scroll`/`resize` binding here
-       rather than being threaded through updateDock/updateNav's two different call sites. Lenis
-       in this project scrolls the real window (see file header comment), so plain native scroll
-       events fire correctly during Lenis-driven scrolling too — no need to hook lenis.on('scroll')
-       specifically. resize is also listened for since it can change scrollHeight/innerHeight
-       (e.g. a stage card's content reflowing), which changes the percentage even if scrollY hasn't
-       moved. */
-    const progressBar = document.getElementById("scrollProgressBar");
-    function updateProgress() {
-      if (!progressBar) return;
-      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
-      const pct = scrollable > 0 ? Math.min(1, Math.max(0, window.scrollY / scrollable)) * 100 : 0;
-      progressBar.style.width = pct + "%";
-    }
-    updateProgress();
-    addEventListener("scroll", updateProgress, { passive: true });
-    addEventListener("resize", updateProgress);
-    cleanupFns.push(() => {
-      removeEventListener("scroll", updateProgress);
-      removeEventListener("resize", updateProgress);
-    });
-
     if (nav && wrap && stage && dockVideo && slot && editor) {
       const topBar = editor.querySelector<HTMLElement>(".e-top");
       const scrub = editor.querySelector<HTMLElement>(".ae-body");

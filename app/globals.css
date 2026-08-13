@@ -1,5 +1,6 @@
-/* Google fonts (exact families the design tokens reference). @import must stay first. */
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+/* Fonts are no longer @imported here. They are loaded by next/font in app/layout.tsx, which
+   self-hosts them and exposes --font-display-src / --font-body-src (see the note there for why).
+   The two tokens below still hold the family stacks, so nothing else in this file changed. */
 
 @tailwind base;
 @tailwind components;
@@ -39,8 +40,12 @@
   --bg-2:#151515;
   --surface:#1a1a1a;
   --surface-2:#202020;
-  --line:rgba(255,255,255,.08);
-  --line-2:rgba(255,255,255,.15);
+  /* Hairlines. Deliberately faint: on a near-black surface a white border at even 8% reads as a
+     hard drawn box rather than an edge catching light, which is what made cards and chips look
+     heavy. These carry every border on the site, so lowering them here lightens the whole page at
+     once. Kept above 3% — below that they vanish entirely on dimmer phone screens. */
+  --line:rgba(255,255,255,.045);
+  --line-2:rgba(255,255,255,.09);
   --text:#f3f5f3;
   --muted:#98a398;
   --muted-2:#676f67;
@@ -52,8 +57,8 @@
   --radius-lg:26px;
   --maxw:1240px;
   --ease:cubic-bezier(.16,1,.3,1);
-  --font-display:"Space Grotesk", system-ui, sans-serif;
-  --font-body:"Inter", system-ui, -apple-system, sans-serif;
+  --font-display:var(--font-display-src), "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-body:var(--font-body-src), "Inter", system-ui, -apple-system, sans-serif;
 }
 
 *{box-sizing:border-box;margin:0;padding:0}
@@ -115,22 +120,6 @@ img{max-width:100%;display:block}
 @media (max-width:768px){.edge-accent{display:none}}
 @media (prefers-reduced-motion:reduce){.edge-accent{animation:none;opacity:.6}}
 
-/* Horizontal scroll-progress bar: a thin track pinned to the very top edge of the viewport,
-   above/at the top of the fixed navbar (z-index:151, one above .edge-accent/.nav's own 150/100),
-   with an inner bar whose width (0%-100%) is written directly by JS in SmoothScroll.tsx (see
-   `updateProgress`), driven off window.scrollY vs the page's total scrollable height. width is a
-   layout-affecting property but this element is 100%-wide fixed/pointer-events:none, so animating
-   it never triggers layout on anything else on the page (no reflow of real content). A short CSS
-   transition smooths out the per-tick jumps between scroll-event updates into one continuous fill
-   rather than a stepped one, without needing a JS animation loop of its own. */
-.scroll-progress{position:fixed;top:0;left:0;right:0;height:3px;z-index:151;pointer-events:none;
-  background:rgba(255,255,255,.06)}
-.scroll-progress-bar{height:100%;width:0%;
-  background:linear-gradient(90deg,var(--accent),var(--accent-bright));
-  box-shadow:0 0 10px rgba(63,163,122,.65);
-  transition:width .12s linear}
-@media (prefers-reduced-motion:reduce){.scroll-progress-bar{transition:none}}
-
 
 .container{width:100%;max-width:var(--maxw);margin:0 auto;padding:0 26px}
 
@@ -143,31 +132,9 @@ img{max-width:100%;display:block}
   padding:8px 16px;border-radius:100px;
   background:rgba(255,255,255,.04);
   backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%);
-  border:1px solid rgba(255,255,255,.1);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 8px 20px -14px rgba(0,0,0,.6);
+  border:1px solid rgba(255,255,255,.055);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 8px 20px -14px rgba(0,0,0,.6);
 }
-/* Recording-style pulse, per user request: the small dot on every section eyebrow (About, Work,
-   Shorts, Thumbnails, How I Work, Services, FAQ, Contact — every section header uses the shared
-   .eyebrow class, so one rule here covers all of them, no per-section markup needed).
-   REVISED from a first attempt that used steps(1,end) — an instant, no-transition jump between
-   two fixed opacity values every tick, which reads as harsh flicker rather than a light breathing
-   on and off. ease-in-out is a smooth S-curve for the ENTIRE 2.2s cycle (no held plateau, no jump
-   cut), which is what actually produces a fade rather than a toggle.
-   "Highlighted" is the brighter --accent-bright glow at the peak, fading down to the dimmer base
-   --accent glow at the trough — the dot doesn't just get more/less see-through, its own light
-   visibly brightens and dims. Both opacity and box-shadow are compositor-cheap here: this is one
-   7px pseudo-element, not dozens of cards, so animating the glow alongside the opacity is
-   negligible cost for a real gain in how "alive" the highlight reads. */
-.eyebrow::before{
-  content:"";width:7px;height:7px;border-radius:50%;
-  background:var(--accent);
-  animation:eyebrow-rec-blink 2.2s ease-in-out infinite;
-}
-@keyframes eyebrow-rec-blink{
-  0%,100%{opacity:1;box-shadow:0 0 16px 2px var(--accent-bright)}
-  50%{opacity:.35;box-shadow:0 0 4px 0 var(--accent)}
-}
-@media (prefers-reduced-motion:reduce){.eyebrow::before{animation:none;box-shadow:0 0 14px var(--accent)}}
 
 /* Buttons.
    PREMIUM PASS: hover states upgraded from a flat color-swap + lift to a soft emerald glow
@@ -211,7 +178,7 @@ body.cta-focus .cta-spotlight{opacity:1}
 .about-actions .btn-primary{
   position:relative;overflow:hidden;
   background:linear-gradient(160deg,rgba(63,163,122,.94),rgba(46,111,82,.86));
-  border:1px solid rgba(255,255,255,.18);
+  border:1px solid rgba(255,255,255,.12);
   backdrop-filter:blur(12px) saturate(1.25);-webkit-backdrop-filter:blur(12px) saturate(1.25);
   box-shadow:
     0 10px 26px -8px rgba(0,0,0,.6),
@@ -284,9 +251,11 @@ body.cta-focus .cta-spotlight{opacity:1}
   /* Tinted dark base under the white sheen (rather than white-on-transparent alone): it keeps the
      pill legible over bright content while still reading as glass thanks to the backdrop blur. */
   background:linear-gradient(180deg,rgba(18,24,20,.62),rgba(10,14,12,.5));
-  border:1px solid rgba(255,255,255,.14);
+  border:1px solid rgba(255,255,255,.075);
   backdrop-filter:blur(16px) saturate(160%);-webkit-backdrop-filter:blur(16px) saturate(160%);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 6px 18px -10px rgba(0,0,0,.7);
+  /* The pill stays readable on bright sections through its tinted base + the nav scrim, not
+     through a strong rim, so the rim can drop this far without losing the nav. */
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.09),0 6px 18px -10px rgba(0,0,0,.7);
 }
 .nav-links a:hover{color:var(--text);background:rgba(255,255,255,.09);border-color:rgba(63,163,122,.4)}
 /* the CTA sits inline with the other links now (moved out of its own .nav-actions group in the
@@ -1107,7 +1076,7 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
    with z-index:auto, so it creates no stacking context and the shield competes directly with this
    button; the shield comes later in the DOM, so at equal z-index it would win and swallow every
    click on the close button. */
-.lf-close{border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.5);color:#fff;
+.lf-close{border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.5);color:#fff;
   backdrop-filter:blur(6px);cursor:pointer;transition:.2s;z-index:5}
 .lf-close{position:absolute;top:12px;right:12px;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;line-height:1}
 .lf-close:hover{background:var(--accent);color:var(--accent-ink);border-color:transparent}
