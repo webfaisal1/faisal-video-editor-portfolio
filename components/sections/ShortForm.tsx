@@ -5,9 +5,11 @@ import html from "@/content/short";
 
 /**
  * Short Form fanned card stack (znaac mechanism), re-homed verbatim from the single-file build.
- * Preserves: fan/hover transform math, per-card unmuted audio ramp with a muted fallback for the
- * first-hover-before-gesture case (Fix 2c), hovered-card z-index above the nav (Fix 2b), and
- * click -> shared popup (window.__openVideoPopup, unmuted). Mobile carousel taps open the popup.
+ * Preserves: fan/hover transform math and hovered-card z-index above the nav (Fix 2b). Cards are
+ * poster images now (playback moved to YouTube), so the per-card audio ramp that used to live
+ * here on hover no longer applies — see the comment above `cleanups` in setupFan. Click still
+ * opens the shared popup (window.__openVideoPopup), now with a YouTube id + aspect ratio instead
+ * of a local file path. Mobile carousel taps open the same popup.
  */
 export default function ShortForm() {
   const ref = useRef<HTMLDivElement>(null);
@@ -79,77 +81,25 @@ export default function ShortForm() {
     }
     apply();
 
-    function makeAudio(video: HTMLVideoElement) {
-      let raf: number | null = null;
-      const cancel = () => {
-        if (raf !== null) {
-          cancelAnimationFrame(raf);
-          raf = null;
-        }
-      };
-      const rampFrom = (vol0: number) => {
-        const t0 = performance.now();
-        const stepFn = (now: number) => {
-          if (video.muted) {
-            raf = null;
-            return;
-          }
-          const r = Math.max(0, Math.min(1, (now - t0) / 500));
-          video.volume = vol0 + (0.5 - vol0) * r;
-          raf = r < 1 ? requestAnimationFrame(stepFn) : null;
-        };
-        raf = requestAnimationFrame(stepFn);
-      };
-      const play = () => {
-        cancel();
-        video.muted = false;
-        video.volume = 0;
-        const p = video.play();
-        if (p && p.catch) {
-          p.catch(() => {
-            video.muted = true;
-            video.volume = 1;
-            const p2 = video.play();
-            if (p2 && p2.catch) p2.catch(() => {});
-          });
-        }
-        rampFrom(0);
-      };
-      const stop = () => {
-        cancel();
-        video.pause();
-        video.muted = true;
-        video.volume = 1;
-        try {
-          video.currentTime = 0.01;
-        } catch {}
-      };
-      return { play, stop };
-    }
-
+    // The per-card audio ramp that used to live here is gone with the local <video> elements.
+    // Cards are poster images now, and a muted-to-0.5 volume fade has no equivalent on a
+    // cross-origin YouTube iframe — pre-loading four iframes just to enable a hover preview would
+    // also undo the load-time saving this swap was made for. The fan's transform math, hover
+    // z-index and click-to-open are all untouched.
     const cleanups: Array<() => void> = [];
     outers.forEach((outer) => {
-      const video = outer.querySelector<HTMLVideoElement>("video")!;
-      const audio = makeAudio(video);
       const onEnter = () => {
         activeIndex = +outer.dataset.index!;
         apply();
-        audio.play();
       };
-      const onLeave = () => audio.stop();
       const onClick = () => {
-        audio.stop();
-        const src =
-          outer.querySelector("source")?.getAttribute("src") || video.currentSrc;
         const face = outer.querySelector(".sf-card-face");
-        window.__openVideoPopup?.(src, face, true);
+        window.__openVideoPopup?.(outer.dataset.yt || "", face, outer.dataset.ar);
       };
       outer.addEventListener("mouseenter", onEnter);
-      outer.addEventListener("mouseleave", onLeave);
       outer.addEventListener("click", onClick);
       cleanups.push(() => {
         outer.removeEventListener("mouseenter", onEnter);
-        outer.removeEventListener("mouseleave", onLeave);
         outer.removeEventListener("click", onClick);
       });
     });
@@ -162,8 +112,7 @@ export default function ShortForm() {
     const mobileCards = Array.from(root!.querySelectorAll<HTMLElement>(".sf-m-card"));
     mobileCards.forEach((card) => {
       const onClick = () => {
-        const src = card.querySelector("source")?.getAttribute("src");
-        if (src) window.__openVideoPopup?.(src, card, true);
+        if (card.dataset.yt) window.__openVideoPopup?.(card.dataset.yt, card, card.dataset.ar);
       };
       card.addEventListener("click", onClick);
       cleanups.push(() => card.removeEventListener("click", onClick));

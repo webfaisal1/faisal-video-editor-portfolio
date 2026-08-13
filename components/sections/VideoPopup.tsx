@@ -7,10 +7,40 @@ import html from "@/content/popup";
 /**
  * Shared FLIP-style video popup (one instance, reused by Long Form tiles and Short Form cards).
  * Renders the overlay markup and re-homes the original single-file popup IIFE:
- *  - wires each .lf-tile (hover inline preview + cursor-following play icon + click-to-open)
- *  - exposes window.__openVideoPopup so Short Form can open the same modal unmuted on click
- * Preserves the muted/unmuted autoplay fallback exactly.
+ *  - wires each .lf-tile (cursor-following play icon + click-to-open)
+ *  - exposes window.__openVideoPopup so Short Form can open the same modal
+ *
+ * PLAYBACK IS NOW A YOUTUBE IFRAME, not a local <video>. What that changes:
+ *  - openSource takes a YouTube video id plus an aspect ratio, instead of a file path. Aspect can
+ *    no longer be read back from the media (a cross-origin iframe exposes no intrinsic size), so
+ *    each card declares its own via data-ar — 16/9 for long form, 9/16 for short form.
+ *  - The muted/unmuted autoplay fallback is gone. It existed because browsers block unmuted
+ *    autoplay without a gesture; here the iframe is only ever created by a click, which IS the
+ *    gesture, so YouTube starts with sound on its own.
+ *  - Closing clears the iframe's src. That is what actually stops playback and tears down the
+ *    player — merely hiding the overlay would leave audio running underneath.
  */
+
+// Privacy-enhanced host: no YouTube cookie is set unless the video actually plays.
+const YT_HOST = "https://www.youtube-nocookie.com/embed/";
+// NOTE ON modestbranding: it is NOT in this list because it does nothing. YouTube deprecated the
+// parameter — it is accepted and ignored, and there is no replacement. The title, channel avatar,
+// uploader name and YouTube wordmark cannot be removed from a standard embed by any parameter, and
+// they live in a cross-origin document so CSS cannot reach them either. They are suppressed
+// structurally instead: controls=0 removes the bottom bar outright, and .lf-shield stops the
+// hover/pause events that would paint the rest (see content/popup.ts).
+//   controls=0        no progress bar, no buttons, no wordmark row
+//   enablejsapi=1     lets the shield drive play/pause over postMessage, so losing YouTube's own
+//                     controls costs the viewer nothing
+//   disablekb=1       no keyboard shortcuts leaking to the player (Escape stays ours)
+//   fs=0              no fullscreen affordance, which would re-expose YouTube chrome
+//   rel=0             end-cards stay on the same channel
+//   iv_load_policy=3  no annotation cards
+//   playsinline=1     iOS plays in place instead of hijacking to native fullscreen
+// autoplay=1 is safe because the iframe only ever exists as the result of a real click.
+const YT_PARAMS =
+  "autoplay=1&controls=0&enablejsapi=1&disablekb=1&fs=0&rel=0&iv_load_policy=3&playsinline=1";
+
 export default function VideoPopup() {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -20,25 +50,40 @@ export default function VideoPopup() {
     const overlay = document.getElementById("lfOverlay")!;
     const backdrop = document.getElementById("lfBackdrop")!;
     const modal = document.getElementById("lfModal") as HTMLElement;
-    const videoEl = document.getElementById("lfVideo") as HTMLVideoElement;
+    const frameEl = document.getElementById("lfFrame") as HTMLIFrameElement;
+    const coverEl = document.getElementById("lfCover") as HTMLElement | null;
+    const shieldEl = document.getElementById("lfShield") as HTMLElement | null;
     const closeBtn = document.getElementById("lfClose")!;
-    const unmuteBtn = document.getElementById("lfUnmute")!;
-    if (!overlay || !modal || !videoEl) return;
+    if (!overlay || !modal || !frameEl) return;
     const hasGsap = true;
     const canHover = matchMedia("(hover:hover)").matches;
 
     let activeTile: HTMLElement | null = null;
     let isOpen = false;
+    // Declared by the opening card; a cross-origin iframe cannot report its own intrinsic size.
+    let activeAspect = 16 / 9;
+    let isPlaying = true;
+    let coverTimer: number | null = null;
+
+    /**
+     * Drives the player without loading YouTube's IFrame API script. With enablejsapi=1 the embed
+     * listens for these postMessage commands directly, which is all that is needed here — pulling
+     * in their ~80KB library to call two functions would be a poor trade, and it also injects its
+     * own globals.
+     */
+    function ytCommand(func: "playVideo" | "pauseVideo") {
+      frameEl.contentWindow?.postMessage(
+        JSON.stringify({ event: "command", func, args: [] }),
+        "*"
+      );
+    }
 
     function targetRect() {
       const vw = innerWidth,
         vh = innerHeight;
       const maxW = vw * 0.86,
         maxH = vh * 0.82;
-      const ar =
-        videoEl.videoWidth && videoEl.videoHeight
-          ? videoEl.videoWidth / videoEl.videoHeight
-          : 16 / 9;
+      const ar = activeAspect;
       let w = maxW,
         h = w / ar;
       if (h > maxH) {
@@ -58,11 +103,41 @@ export default function VideoPopup() {
       }
     }
 
-    function openSource(src: string, originEl: Element | null, startUnmuted: boolean) {
-      if (isOpen) return;
+    /** Accepts "16/9" | "9/16" | a number; falls back to 16:9 on anything unparseable. */
+    function parseAspect(raw: string | undefined | null): number {
+      if (!raw) return 16 / 9;
+      const m = raw.split("/");
+      if (m.length === 2) {
+        const w = parseFloat(m[0]),
+          h = parseFloat(m[1]);
+        if (w > 0 && h > 0) return w / h;
+      }
+      const n = parseFloat(raw);
+      return n > 0 ? n : 16 / 9;
+    }
+
+    function openSource(ytId: string, originEl: Element | null, aspect?: string | number) {
+      if (isOpen || !ytId) return;
       isOpen = true;
       activeTile = originEl as HTMLElement | null;
       if (originEl) originEl.classList.add("is-active");
+      activeAspect = typeof aspect === "number" ? aspect : parseAspect(aspect);
+      isPlaying = true;
+
+      // Hold the originating card's own poster over the player while it boots. YouTube paints its
+      // title for roughly a second before auto-hiding it, and that one is not hover-triggered so
+      // the shield cannot prevent it — covering it is the only way. Reusing the card's poster
+      // (rather than a black fill) also means the modal opens on the exact frame the card showed.
+      if (coverEl) {
+        const poster = originEl?.querySelector("img")?.getAttribute("src");
+        coverEl.style.backgroundImage = poster ? `url("${poster}")` : "none";
+        coverEl.classList.remove("is-hidden");
+        if (coverTimer !== null) clearTimeout(coverTimer);
+        coverTimer = window.setTimeout(() => {
+          coverEl.classList.add("is-hidden");
+          coverTimer = null;
+        }, 1400);
+      }
 
       const rect = originEl ? originEl.getBoundingClientRect() : targetRect();
       modal.style.left = rect.left + "px";
@@ -71,33 +146,9 @@ export default function VideoPopup() {
       modal.style.height = rect.height + "px";
       overlay.classList.add("open");
 
-      const startMuted = !startUnmuted;
-      videoEl.muted = startMuted;
-      if (startMuted) videoEl.setAttribute("muted", "");
-      else videoEl.removeAttribute("muted");
-      unmuteBtn.classList.toggle("is-unmuted", !!startUnmuted);
-      videoEl.src = src;
-      videoEl.preload = "auto";
-      videoEl.load();
+      frameEl.src = YT_HOST + encodeURIComponent(ytId) + "?" + YT_PARAMS;
 
       applyRect(targetRect(), true);
-      videoEl.addEventListener("loadedmetadata", function onMeta() {
-        videoEl.removeEventListener("loadedmetadata", onMeta);
-        applyRect(targetRect(), true);
-      });
-      videoEl.addEventListener(
-        "canplay",
-        () => {
-          videoEl.play().catch(() => {
-            if (!videoEl.muted) {
-              videoEl.muted = true;
-              unmuteBtn.classList.remove("is-unmuted");
-              videoEl.play().catch(() => {});
-            }
-          });
-        },
-        { once: true }
-      );
 
       document.documentElement.classList.add("lf-lock");
       window.__lenis?.stop();
@@ -107,6 +158,13 @@ export default function VideoPopup() {
     function closeOverlay() {
       if (!isOpen) return;
       isOpen = false;
+      // Silence immediately rather than waiting out the 450ms close tween — the src is not cleared
+      // until finishClose, so without this the audio keeps playing over the closing animation.
+      ytCommand("pauseVideo");
+      if (coverTimer !== null) {
+        clearTimeout(coverTimer);
+        coverTimer = null;
+      }
       const tile = activeTile;
       const rect = tile ? tile.getBoundingClientRect() : targetRect();
       overlay.classList.remove("open");
@@ -121,9 +179,9 @@ export default function VideoPopup() {
       });
     }
     function finishClose() {
-      videoEl.pause();
-      videoEl.removeAttribute("src");
-      videoEl.load();
+      // Clearing src destroys the player. Without this the video keeps playing (with audio)
+      // behind the closed overlay.
+      frameEl.removeAttribute("src");
       if (activeTile) activeTile.classList.remove("is-active");
       activeTile = null;
       document.documentElement.classList.remove("lf-lock");
@@ -132,7 +190,6 @@ export default function VideoPopup() {
 
     const perTileCleanups: Array<() => void> = [];
     tiles.forEach((tile) => {
-      const thumb = tile.querySelector<HTMLVideoElement>(".lf-thumb");
       const play = tile.querySelector<HTMLElement>(".lf-play");
       const mag = { tx: 0, ty: 0, cx: 0, cy: 0, raf: 0 as number | 0 };
       let rafId: number | null = null;
@@ -149,7 +206,9 @@ export default function VideoPopup() {
         if (rafId == null) rafId = requestAnimationFrame(magTick);
       }
 
-      const onEnter = () => thumb?.play().catch(() => {});
+      // The hover handlers used to also play/pause an inline <video> preview. With a poster image
+      // there is nothing to play, so only the cursor-following play icon remains — every visual
+      // hover effect (scale, border, icon travel) is unchanged.
       const onMove = (e: MouseEvent) => {
         const r = tile.getBoundingClientRect();
         const margin = (play?.offsetWidth || 58) / 2 + 6;
@@ -160,27 +219,22 @@ export default function VideoPopup() {
         magEnsureLoop();
       };
       const onLeave = () => {
-        thumb?.pause();
-        try {
-          if (thumb) thumb.currentTime = 0.08;
-        } catch {}
         mag.tx = 0;
         mag.ty = 0;
         magEnsureLoop();
       };
       if (canHover) {
-        tile.addEventListener("mouseenter", onEnter);
         tile.addEventListener("mousemove", onMove);
         tile.addEventListener("mouseleave", onLeave);
       }
       const onClick = (e: Event) => {
         e.preventDefault();
-        openSource((tile as HTMLElement).dataset.src || "", tile, false);
+        const el = tile as HTMLElement;
+        openSource(el.dataset.yt || "", tile, el.dataset.ar);
       };
       tile.addEventListener("click", onClick);
       perTileCleanups.push(() => {
         if (canHover) {
-          tile.removeEventListener("mouseenter", onEnter);
           tile.removeEventListener("mousemove", onMove);
           tile.removeEventListener("mouseleave", onLeave);
         }
@@ -194,17 +248,29 @@ export default function VideoPopup() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") closeOverlay();
     };
-    const onUnmute = () => {
-      videoEl.muted = !videoEl.muted;
-      unmuteBtn.classList.toggle("is-unmuted", !videoEl.muted);
-    };
     const onResize = () => {
       if (isOpen) applyRect(targetRect(), false);
+    };
+    // The shield swallows pointer events so YouTube never paints its title/avatar overlay; this
+    // hands play/pause back to the viewer through it, so nothing is lost by hiding that chrome.
+    const onShield = () => {
+      if (!isOpen) return;
+      isPlaying = !isPlaying;
+      ytCommand(isPlaying ? "playVideo" : "pauseVideo");
+      // Keep the poster from reappearing over a video the viewer just un-paused.
+      if (coverEl) coverEl.classList.add("is-hidden");
+    };
+    const onShieldKey = (e: KeyboardEvent) => {
+      if (e.key === " " || e.key === "Enter") {
+        e.preventDefault();
+        onShield();
+      }
     };
     backdrop.addEventListener("click", onBackdrop);
     closeBtn.addEventListener("click", onClose);
     document.addEventListener("keydown", onKey);
-    unmuteBtn.addEventListener("click", onUnmute);
+    shieldEl?.addEventListener("click", onShield);
+    shieldEl?.addEventListener("keydown", onShieldKey);
     addEventListener("resize", onResize);
 
     return () => {
@@ -212,7 +278,9 @@ export default function VideoPopup() {
       backdrop.removeEventListener("click", onBackdrop);
       closeBtn.removeEventListener("click", onClose);
       document.removeEventListener("keydown", onKey);
-      unmuteBtn.removeEventListener("click", onUnmute);
+      shieldEl?.removeEventListener("click", onShield);
+      shieldEl?.removeEventListener("keydown", onShieldKey);
+      if (coverTimer !== null) clearTimeout(coverTimer);
       removeEventListener("resize", onResize);
       if (window.__openVideoPopup === openSource) window.__openVideoPopup = undefined;
     };

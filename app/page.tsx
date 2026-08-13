@@ -20,9 +20,9 @@ export default function Home() {
     <SmoothScroll>
       <Nav />
       <Showcase />
-      <About />
       <LongForm />
       <ShortForm />
+      <About />
       <Thumbnails />
       <HowIWork />
       <Services />

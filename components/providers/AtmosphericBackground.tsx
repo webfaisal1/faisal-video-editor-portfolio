@@ -270,14 +270,17 @@ function readTheme() {
   const pick = (name: string, fallback: [number, number, number]) =>
     hexToRgb(cs.getPropertyValue(name)) ?? fallback;
   return {
-    // Mirrors the :root tokens: #000000 / #0055ff / #407fff / #efeeec.
+    // Mirrors the :root tokens: #0f0f0f / #2e6f52 / #3fa37a / #d8e3d9 (the site's emerald theme,
+    // restored after a since-reverted blue rebrand).
     // NOTE these are NORMALISED FLOATS, so a grep for hex or rgb() triplets will not find them —
-    // they were missed by exactly such a search during an earlier palette swap. Only reached if a
-    // CSS var is missing or unparseable; live values are read from CSS so the theme tracks itself.
-    bg: pick("--bg", [0.0, 0.0, 0.0]),
-    accent: pick("--accent", [0.0, 0.333, 1.0]),
-    accentBright: pick("--accent-bright", [0.251, 0.498, 1.0]),
-    sage: pick("--sage", [0.937, 0.933, 0.925]),
+    // they were missed by exactly such a search during the earlier palette swap, which is why this
+    // fallback still described blue for a while even after the CSS tokens themselves were fixed.
+    // Only reached if a CSS var is missing or unparseable; live values are read from CSS so the
+    // theme tracks itself under normal operation.
+    bg: pick("--bg", [0.059, 0.059, 0.059]),
+    accent: pick("--accent", [0.18, 0.435, 0.322]),
+    accentBright: pick("--accent-bright", [0.247, 0.639, 0.478]),
+    sage: pick("--sage", [0.847, 0.89, 0.851]),
   };
 }
 
@@ -285,6 +288,38 @@ export default function AtmosphericBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
+    /* DISABLED — the WebGL shader is switched off here, before touching the canvas at all, rather
+       than deleted, so the elaborate cursor-reactive effect it implements stays available to
+       re-enable later if wanted; the reasoning below is why it isn't being relied on right now.
+       (`as boolean` widens the literal so this reads as a genuine runtime check rather than
+       `if (false)`, which keeps every line below it exactly as type-checkable as it was before —
+       bailing out any later, after canvas had already been narrowed non-null, broke that narrowing
+       for the closures defined further down and produced real compile errors.)
+
+       Root cause of "the two glows aren't there": the canvas was stuck at the browser's literal
+       default backing-store size (300x150) instead of filling the viewport, because the only thing
+       resizing it (a ResizeObserver) can fail to deliver a callback — confirmed directly earlier in
+       this project (0 callbacks across a real, live layout change). A load-listener + settle-frame
+       fallback were added to close that gap, and after that fix the canvas DID correctly fill the
+       real viewport (measured: 864x540 backing store for a 1440x900 window, matching the 0.6 render
+       scale exactly) with its render loop confirmed running.
+
+       But sampling actual rendered pixels at that point (gl.readPixels, not a guess) showed the
+       shader's own light intensity is close to imperceptible against the page's near-black
+       background — brightest sampled pixel vs. darkest differed by only a handful of RGB units
+       (e.g. rgb(17,20,19) vs rgb(15,15,15)). The canvas's own output is fully opaque
+       (gl_FragColor's alpha is always 1.0), so once it is correctly sized it unavoidably paints
+       over — and hides — the .atmos CSS gradient sitting underneath it, subtle or not: there was no
+       way to make the visible result brighter without re-tuning constants buried in ~250 lines of
+       GLSL, which cannot be verified without eyes on a real screen.
+       The dependable fix is the opposite move: stop the canvas from painting at all (bailing here
+       creates no WebGL context, starts no render loop — zero GPU/CPU cost, not just an invisible
+       one), which lets the .atmos div's own CSS background — a plain, directly-verifiable
+       radial-gradient — be the thing actually on screen, retuned to the position and intensity
+       actually being asked for (see the .atmos rule in globals.css). */
+    const ATMOS_SHADER_ENABLED = false as boolean;
+    if (!ATMOS_SHADER_ENABLED) return;
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -455,6 +490,35 @@ export default function AtmosphericBackground() {
       drawStill();
     });
     sizeObserver.observe(canvas);
+
+    /* ResizeObserver is NOT sufficient on its own — measured directly: in at least one real
+       environment it delivered ZERO callbacks across a genuine, confirmed layout change (the same
+       failure this project already hit and fixed for the Hero's own dock-geometry measurement, see
+       SmoothScroll.tsx). resize()'s zero-size guard above means a delivery gap here doesn't just
+       leave the canvas stale — it leaves it at the browser's literal default backing-store size
+       (300x150), which is what was actually reported as "the glow isn't there any more": at that
+       size the shader still renders, just compressed into a tiny fraction of the screen instead of
+       filling it. These two triggers are redundant with the observer by design, not a replacement
+       for it — cheap, idempotent (resize() no-ops if the size hasn't actually changed), and each
+       catches a different gap:
+         - "load" — fonts/images finishing after the observer's first callback can still shift
+           layout once more.
+         - a short rAF settle loop — covers the same "measured 0 at mount, no observer callback
+           ever arrives to correct it" case the zero-size guard above documents, without waiting on
+           any observer to eventually deliver one. */
+    const onLoadResize = () => {
+      resize();
+      drawStill();
+    };
+    window.addEventListener("load", onLoadResize);
+    let settleFrames = 0;
+    let settleRaf = 0;
+    const settleResize = () => {
+      resize();
+      drawStill();
+      if (++settleFrames < 10) settleRaf = requestAnimationFrame(settleResize);
+    };
+    settleRaf = requestAnimationFrame(settleResize);
 
     /* ---- pointer state ----
        target = raw pointer. pos = exponentially eased follower (no velocity/spring — see frame()).
@@ -631,6 +695,8 @@ export default function AtmosphericBackground() {
       disposed = true;
       stop();
       sizeObserver.disconnect();
+      window.removeEventListener("load", onLoadResize);
+      cancelAnimationFrame(settleRaf);
       canvas.removeEventListener("webglcontextlost", onContextLost);
       canvas.removeEventListener("webglcontextrestored", onContextRestored);
       window.removeEventListener("resize", resize);

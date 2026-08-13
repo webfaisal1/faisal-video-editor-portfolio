@@ -10,10 +10,14 @@ declare global {
       start: () => void;
       scrollTo: (target: Element | number | string, opts?: unknown) => void;
     };
+    // Takes a YouTube video id (playback moved from local .mp4 files to YouTube embeds) and the
+    // aspect ratio the modal should open at — "16/9" for long form, "9/16" for short form. Aspect
+    // has to be passed in because a cross-origin iframe exposes no intrinsic dimensions, unlike
+    // the <video> element this replaced.
     __openVideoPopup?: (
-      src: string,
+      ytId: string,
       originEl: Element | null,
-      startUnmuted: boolean
+      aspect?: string | number
     ) => void;
   }
 }

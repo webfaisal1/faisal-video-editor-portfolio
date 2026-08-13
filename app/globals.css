@@ -15,59 +15,39 @@
    DESIGN SYSTEM / TOKENS
    ========================================================= */
 /* =========================================================
-   THEME: Pure Black + Electric Blue — matched to the owner's Framer portfolio
-   (itsmemohammadfaisal.framer.media), sampled from that site's LIVE computed styles rather than
-   eyeballed from a screenshot. Backgrounds were ranked by rendered area and text colours by
-   character count, so these are the colours that site actually leans on, not incidental ones.
+   REBRAND: Charcoal + Emerald (replaces the previous electric-lime dark theme).
+   Every color in this file routes through these tokens (Tailwind config also just aliases
+   them), so this block is the single source of truth for the palette swap. The only literal
+   hex/rgb values left in the stylesheet are decompositions of these same tokens into rgba()
+   for glow/gradient alpha blending (search for "46,111,82", the emerald rgb triplet).
 
-   MEASURED SOURCE VALUES (what was found there):
-     #000000            page background — dominant by a wide margin (~30M px^2)
-     #080808            secondary surface
-     #1f2021            card / panel surface
-     #0055FF            accent. Fills render as #0055fe (Framer rounds); every glow and gradient
-                        uses rgb(0,85,255), so that is treated as canonical
-     #FFFFFF            headings and primary text
-     rgba(255,255,255,.6) / .5   muted body text — over pure black these flatten to #999999 and
-                        #808080, which is why --muted/--muted-2 are exactly those
-     #EFEEEC            warm off-white, used as a light button fill
-     #131313            dark ink on that light fill
-     #999999            grey used throughout their gradient stops
-   Signature effects sampled there: CTA glow rgba(0,85,255,.5) 0 8px 40px; softer
-   rgba(0,85,255,.35) 2px 4px 24px; accent seam linear-gradient(90deg,transparent,#0055FF,
-   transparent); glass wash linear-gradient(rgba(255,255,255,.05),rgba(153,153,153,.06)).
-
-   TWO DERIVED VALUES (not sampled, and flagged as such):
-     --accent-bright #407FFF — Framer varies the SAME blue by alpha instead of keeping a second
-       token. This codebase's glows/hover states need a genuinely lighter tint to read on black,
-       so this is #0055FF lifted toward white at identical hue (220), not a new colour.
-     --surface #141516 — interpolated between their #080808 and #1f2021, because this codebase
-       has one more surface step than that site does.
-
-   CONTRAST. --accent-ink stays near-white: #FFFFFF on #0055FF measures 5.61:1, clearing the 4.5
-   AA floor, and matches what the Framer site itself does on its blue CTA. Note the accent's
-   luminance is 0.137 — a blue can be vivid and still dark, because blue contributes only 0.0722
-   to relative luminance versus green's 0.7152. Any future accent swap must re-check this pairing.
-   - --bg / --bg-2: pure black and the near-black secondary surface
-   - --surface / --surface-2: panel/card surfaces
-   - --accent: primary electric blue (buttons, active states, CTAs)
-   - --accent-bright: lighter tint, glows and hover highlights only
-   - --accent-ink: text on accent-colored surfaces (white — see the contrast note)
-   - --sage: warm off-white, used sparingly for light-touch contrast accents
+   REVERTED BACK TO THIS from a since-removed "Pure Black + Electric Blue" experiment (values
+   sampled from itsmemohammadfaisal.framer.media) at the owner's explicit request: these are the
+   exact values from the project's first commit, restored verbatim rather than re-derived, so
+   the palette is byte-identical to how the site originally looked rather than an approximation.
+   - --bg / --bg-2: near-black and charcoal darkest surfaces
+   - --surface / --surface-2: charcoal card surfaces
+   - --accent: primary emerald (buttons, active states, CTAs)
+   - --accent-bright: a lighter/more saturated emerald used only for glows and hover highlights,
+     since the base emerald is too dark/desaturated on its own to read as a glow
+   - --accent-ink: text color on accent-colored surfaces (near-white, emerald is too dark for
+     the old dark-ink-on-lime approach)
+   - --sage: soft sage, used sparingly for light-touch contrast accents
    ========================================================= */
 :root{
-  --bg:#000000;
-  --bg-2:#080808;
-  --surface:#141516;
-  --surface-2:#1f2021;
+  --bg:#0f0f0f;
+  --bg-2:#151515;
+  --surface:#1a1a1a;
+  --surface-2:#202020;
   --line:rgba(255,255,255,.08);
   --line-2:rgba(255,255,255,.15);
-  --text:#ffffff;
-  --muted:#999999;
-  --muted-2:#808080;
-  --accent:#0055ff;             /* azure */
-  --accent-bright:#407fff;      /* brighter azure, glows/hover only */
-  --accent-ink:#ffffff;         /* near-white — the accent is dark, see note above */
-  --sage:#efeeec;
+  --text:#f3f5f3;
+  --muted:#98a398;
+  --muted-2:#676f67;
+  --accent:#2e6f52;             /* emerald */
+  --accent-bright:#3fa37a;      /* brighter emerald, glows/hover only */
+  --accent-ink:#f3f5f3;
+  --sage:#d8e3d9;
   --radius:18px;
   --radius-lg:26px;
   --maxw:1240px;
@@ -86,25 +66,28 @@ body{
   overflow-x:hidden;
   -webkit-font-smoothing:antialiased;
 }
-/* ATMOSPHERIC WEBGL BACKGROUND (see components/providers/AtmosphericBackground.tsx).
-   REPLACES the previous fixed two-spot CSS glow outright — that rule is gone, not layered under
-   this one. Its two light positions (left 8%/34%, right 92%/72%) now live inside the shader as its
-   composition anchors, so the page keeps the exact same balance while the mist itself moves.
-   Same placement contract the CSS glow had, and for the same reasons: position:fixed so it holds
-   screen position through scroll, z-index:0 + pointer-events:none so it never intercepts clicks
-   and always paints behind real content (every section's own content wrapper here already uses
-   position:relative;z-index:1 — .about-grid, .hiw-grid, .sf-stage, .lf-grid, .sec-head, .footer).
-   The background-image on .atmos is a STATIC FALLBACK, deliberately approximating the shader's two
-   anchors: it shows if WebGL is unavailable/blocked (the component returns early and never paints
-   the canvas), so those visitors still get the site's established glow rather than a flat void.
-   The canvas paints over it when WebGL does work, since the canvas is opaque.
-   NOTE: like any fixed background layer here, this sits behind .editor-sec/.dock-stage — the
-   pinned, fully opaque hero — so it only becomes visible once that hero scrolls past. */
+/* SITE-WIDE TWO-GLOW BACKGROUND (paired with components/providers/AtmosphericBackground.tsx).
+   This is now the layer actually on screen — the WebGL shader in that component is switched off
+   (see the ATMOS_SHADER_ENABLED flag there for the full reasoning): it rendered fully opaque, so
+   once its canvas-sizing bug was fixed it unavoidably painted over this exact rule regardless of
+   how strong these two gradients were, and its own light output measured too faint to be worth
+   that trade (sampled real pixels: a few RGB units of difference, effectively invisible on a real
+   screen). This CSS gradient is simple, has no sizing race, and its result can be verified directly
+   from computed styles — no shader tuning or screenshot required.
+   Positions, per explicit direction: bottom-left and top-right (previously left-upper/right-lower,
+   the opposite corners — swapped to match). Intensity raised from the shader-fallback days'
+   deliberately-subtle .15/.20 to .26/.30 now that this carries the whole effect on its own.
+   position:fixed so it holds screen position through scroll; z-index:0 + pointer-events:none so it
+   always paints behind real content and never intercepts a click (every section's own content
+   wrapper already uses position:relative;z-index:1 — .about-grid, .hiw-grid, .sf-stage, .lf-grid,
+   .sec-head, .footer). Like any fixed background layer here, this sits behind .editor-sec/
+   .dock-stage — the pinned, fully opaque hero — so it only becomes visible once that hero scrolls
+   past, which is expected and matches every earlier version of this glow. */
 .atmos{
   position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;
   background-image:
-    radial-gradient(38vw 34vh at 8% 34%,rgba(64,127,255,.15),transparent 70%),
-    radial-gradient(42vw 38vh at 92% 72%,rgba(0,85,255,.20),transparent 70%);
+    radial-gradient(44vw 40vh at 95% 95%,rgba(63,163,122,.22),transparent 75%),
+    radial-gradient(44vw 40vh at 8% 32%,rgba(46,111,82,.30),transparent 70%);
   background-repeat:no-repeat,no-repeat;
 }
 /* The canvas backs a downscaled buffer (see RENDER_SCALE) and is stretched to the viewport here;
@@ -125,8 +108,8 @@ img{max-width:100%;display:block}
    CSS gradient + keyframe animation, not a scroll indicator or JS-driven element, so it needs
    no mount logic and cannot silently fail to render the way a JS-animated effect can. */
 .edge-accent{position:fixed;top:0;right:0;height:100vh;width:3px;z-index:150;pointer-events:none;
-  background:linear-gradient(180deg,transparent 0%,rgba(64,127,255,.5) 20%,rgba(64,127,255,.7) 50%,rgba(64,127,255,.5) 80%,transparent 100%);
-  filter:blur(1.5px);box-shadow:0 0 16px 1px rgba(64,127,255,.35);
+  background:linear-gradient(180deg,transparent 0%,rgba(63,163,122,.5) 20%,rgba(63,163,122,.7) 50%,rgba(63,163,122,.5) 80%,transparent 100%);
+  filter:blur(1.5px);box-shadow:0 0 16px 1px rgba(63,163,122,.35);
   animation:edge-accent-pulse 4.5s ease-in-out infinite}
 @keyframes edge-accent-pulse{0%,100%{opacity:.45}50%{opacity:.9}}
 @media (max-width:768px){.edge-accent{display:none}}
@@ -144,7 +127,7 @@ img{max-width:100%;display:block}
   background:rgba(255,255,255,.06)}
 .scroll-progress-bar{height:100%;width:0%;
   background:linear-gradient(90deg,var(--accent),var(--accent-bright));
-  box-shadow:0 0 10px rgba(64,127,255,.65);
+  box-shadow:0 0 10px rgba(63,163,122,.65);
   transition:width .12s linear}
 @media (prefers-reduced-motion:reduce){.scroll-progress-bar{transition:none}}
 
@@ -163,10 +146,28 @@ img{max-width:100%;display:block}
   border:1px solid rgba(255,255,255,.1);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 8px 20px -14px rgba(0,0,0,.6);
 }
+/* Recording-style pulse, per user request: the small dot on every section eyebrow (About, Work,
+   Shorts, Thumbnails, How I Work, Services, FAQ, Contact — every section header uses the shared
+   .eyebrow class, so one rule here covers all of them, no per-section markup needed).
+   REVISED from a first attempt that used steps(1,end) — an instant, no-transition jump between
+   two fixed opacity values every tick, which reads as harsh flicker rather than a light breathing
+   on and off. ease-in-out is a smooth S-curve for the ENTIRE 2.2s cycle (no held plateau, no jump
+   cut), which is what actually produces a fade rather than a toggle.
+   "Highlighted" is the brighter --accent-bright glow at the peak, fading down to the dimmer base
+   --accent glow at the trough — the dot doesn't just get more/less see-through, its own light
+   visibly brightens and dims. Both opacity and box-shadow are compositor-cheap here: this is one
+   7px pseudo-element, not dozens of cards, so animating the glow alongside the opacity is
+   negligible cost for a real gain in how "alive" the highlight reads. */
 .eyebrow::before{
   content:"";width:7px;height:7px;border-radius:50%;
-  background:var(--accent);box-shadow:0 0 14px var(--accent);
+  background:var(--accent);
+  animation:eyebrow-rec-blink 2.2s ease-in-out infinite;
 }
+@keyframes eyebrow-rec-blink{
+  0%,100%{opacity:1;box-shadow:0 0 16px 2px var(--accent-bright)}
+  50%{opacity:.35;box-shadow:0 0 4px 0 var(--accent)}
+}
+@media (prefers-reduced-motion:reduce){.eyebrow::before{animation:none;box-shadow:0 0 14px var(--accent)}}
 
 /* Buttons.
    PREMIUM PASS: hover states upgraded from a flat color-swap + lift to a soft emerald glow
@@ -181,12 +182,65 @@ img{max-width:100%;display:block}
 }
 .btn-primary{background:var(--accent);color:var(--accent-ink)}
 .btn-primary:hover{transform:translateY(-2px);background:var(--accent-bright);
-  box-shadow:0 8px 28px -6px rgba(64,127,255,.55)}
+  box-shadow:0 8px 28px -6px rgba(63,163,122,.55)}
 .btn-ghost{background:rgba(255,255,255,.03);color:var(--text);border-color:var(--line-2);
   backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
-.btn-ghost:hover{background:rgba(64,127,255,.08);border-color:var(--accent-bright);transform:translateY(-2px);
-  box-shadow:0 8px 24px -10px rgba(64,127,255,.35)}
+.btn-ghost:hover{background:rgba(63,163,122,.08);border-color:var(--accent-bright);transform:translateY(-2px);
+  box-shadow:0 8px 24px -10px rgba(63,163,122,.35)}
 .btn svg{width:17px;height:17px}
+
+/* CTA SPOTLIGHT — the overlay div is created by CtaSpotlight.tsx (see that file for why the dim
+   is a gradient with a transparent hole instead of a plain sheet plus a z-index bump). The three
+   --spot-* vars are written onto <body> as the cursor enters a .btn-primary; the dim itself is a
+   very dark green rather than pure black so it reads as part of the theme. */
+.cta-spotlight{
+  position:fixed;inset:0;z-index:600;pointer-events:none;opacity:0;
+  transition:opacity .35s var(--ease);
+  background:radial-gradient(circle at var(--spot-x,50%) var(--spot-y,50%),
+    rgba(6,18,13,0) 0,
+    rgba(6,18,13,0) var(--spot-r,0px),
+    rgba(6,18,13,.55) calc(var(--spot-r,0px) + 70px),
+    rgba(6,18,13,.84) calc(var(--spot-r,0px) + 190px));
+}
+body.cta-focus .cta-spotlight{opacity:1}
+
+/* Page CTAs (About's "Book A Call" and the contact form's submit): 3D glass slab that floats gently
+   up and down, matching the nav CTA's own glass+bounce treatment so all three read as one family.
+   ::before is the top-edge sheen that sells the glass; the layered shadows (outer drop + accent
+   bloom + inset top/bottom rims) are what give it thickness rather than looking like a flat pill. */
+.about-actions .btn-primary,
+.cform .btn-primary{
+  position:relative;overflow:hidden;
+  background:linear-gradient(160deg,rgba(63,163,122,.94),rgba(46,111,82,.86));
+  border:1px solid rgba(255,255,255,.18);
+  backdrop-filter:blur(12px) saturate(1.25);-webkit-backdrop-filter:blur(12px) saturate(1.25);
+  box-shadow:
+    0 10px 26px -8px rgba(0,0,0,.6),
+    0 20px 44px -20px rgba(63,163,122,.55),
+    inset 0 1px 0 rgba(255,255,255,.34),
+    inset 0 -1px 0 rgba(0,0,0,.22);
+  animation:cta-float 3.6s ease-in-out infinite;
+}
+.about-actions .btn-primary::before,
+.cform .btn-primary::before{
+  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(180deg,rgba(255,255,255,.24),rgba(255,255,255,0) 58%);
+}
+/* animation:none (not paused) so the hover transform below can actually take effect — a paused
+   animation still holds its current transform and would outrank the hover rule. */
+.about-actions .btn-primary:hover,
+.cform .btn-primary:hover{
+  animation:none;transform:translateY(-4px) scale(1.03);
+  box-shadow:
+    0 16px 34px -10px rgba(0,0,0,.66),
+    0 26px 56px -22px rgba(63,163,122,.7),
+    inset 0 1px 0 rgba(255,255,255,.42),
+    inset 0 -1px 0 rgba(0,0,0,.22);
+}
+@keyframes cta-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+@media (prefers-reduced-motion:reduce){
+  .about-actions .btn-primary,.cform .btn-primary{animation:none}
+}
 
 /* =========================================================
    NAV
@@ -199,6 +253,17 @@ img{max-width:100%;display:block}
   opacity:0;pointer-events:none;                 /* reveal driven by GSAP ScrollTrigger */
   will-change:transform,opacity;
 }
+/* VISIBILITY SCRIM. The chips are deliberately translucent, so over a bright or busy section
+   (the AE mockup, the thumbnail marquees, the light-heavy hiw graphics) they were washing out and
+   the bar effectively disappeared. This is a soft top-of-page gradient that darkens whatever
+   scrolls underneath and fades to nothing well before it could read as a solid navbar panel — the
+   floating-chip look is preserved, the contrast behind it is not left to chance.
+   z-index:-1 keeps it behind the links but still inside .nav's own stacking context (position:fixed
+   + z-index:100), so it can never slip behind the page content itself. */
+.nav::before{
+  content:"";position:absolute;left:0;right:0;top:0;height:150%;z-index:-1;pointer-events:none;
+  background:linear-gradient(180deg,rgba(8,11,9,.9) 0%,rgba(8,11,9,.66) 42%,rgba(8,11,9,0) 100%);
+}
 .nav-inner{
   max-width:var(--maxw);margin:0 auto;padding:18px 26px;
   display:flex;align-items:center;justify-content:center;gap:24px;
@@ -210,12 +275,14 @@ img{max-width:100%;display:block}
 .nav-links a{
   font-size:14.5px;color:var(--muted);font-weight:500;transition:color .25s,background .25s,border-color .25s;
   position:relative;padding:9px 16px;border-radius:100px;
-  background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.015));
-  border:1px solid rgba(255,255,255,.1);
+  /* Tinted dark base under the white sheen (rather than white-on-transparent alone): it keeps the
+     pill legible over bright content while still reading as glass thanks to the backdrop blur. */
+  background:linear-gradient(180deg,rgba(18,24,20,.62),rgba(10,14,12,.5));
+  border:1px solid rgba(255,255,255,.14);
   backdrop-filter:blur(16px) saturate(160%);-webkit-backdrop-filter:blur(16px) saturate(160%);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.14);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 6px 18px -10px rgba(0,0,0,.7);
 }
-.nav-links a:hover{color:var(--text);background:rgba(255,255,255,.09);border-color:rgba(64,127,255,.4)}
+.nav-links a:hover{color:var(--text);background:rgba(255,255,255,.09);border-color:rgba(63,163,122,.4)}
 /* the CTA sits inline with the other links now (moved out of its own .nav-actions group in the
    markup), so it gets the same glass treatment instead of the site's solid-fill .btn-primary,
    just with a brighter rim/glow so it still reads as the primary action among the plain links.
@@ -227,10 +294,10 @@ img{max-width:100%;display:block}
    the `.nav-links a` prefix here brings this selector to 0,2,1, which reliably wins. */
 .nav-links a.nav-cta{
   padding:10px 20px;font-size:14px;
-  background:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,.02));
-  color:var(--text);border:1px solid rgba(64,127,255,.55);
+  background:linear-gradient(180deg,rgba(24,40,32,.72),rgba(12,20,16,.6));
+  color:var(--text);border:1px solid rgba(63,163,122,.55);
   backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.24),0 0 32px -6px rgba(64,127,255,.85);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.24),0 0 32px -6px rgba(63,163,122,.85);
   animation:nav-cta-bounce 2.4s ease-in-out infinite;
 }
 @keyframes nav-cta-bounce{
@@ -238,8 +305,8 @@ img{max-width:100%;display:block}
   50%{transform:translateY(-5px)}
 }
 .nav-links a.nav-cta:hover{
-  background:rgba(64,127,255,.14);border-color:rgba(64,127,255,.7);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.24),0 0 38px -4px rgba(64,127,255,.95);
+  background:rgba(63,163,122,.14);border-color:rgba(63,163,122,.7);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.24),0 0 38px -4px rgba(63,163,122,.95);
   animation-play-state:paused;transform:translateY(-2px);
 }
 .nav-actions{display:flex;align-items:center;gap:14px}
@@ -249,7 +316,7 @@ img{max-width:100%;display:block}
 
 /* Mobile menu */
 .mobile-menu{
-  position:fixed;inset:0;z-index:99;background:rgba(0,0,0,.97);
+  position:fixed;inset:0;z-index:99;background:rgba(6,6,7,.97);
   backdrop-filter:blur(20px);display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:8px;
   opacity:0;pointer-events:none;transition:opacity .4s var(--ease);
@@ -276,10 +343,18 @@ img{max-width:100%;display:block}
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* reveal helper */
-.reveal{opacity:0;transform:translateY(26px);transition:opacity .9s var(--ease),transform .9s var(--ease)}
-.reveal.in{opacity:1;transform:none}
-.d1{transition-delay:.05s}.d2{transition-delay:.14s}.d3{transition-delay:.23s}.d4{transition-delay:.32s}.d5{transition-delay:.41s}
+/* reveal helper — 3D tilt-up entrance: starts tipped back/small/lower, settles flat as it scrolls in.
+   Duration is deliberately short (.55s): the observer fires each element the moment it individually
+   reaches the trigger line, but a long transition keeps earlier elements still animating while the
+   next ones start, which reads as the whole section arriving as one block instead of one at a time. */
+.reveal{opacity:0;transform-origin:50% 100%;
+  transform:perspective(1000px) translateY(38px) rotateX(14deg) scale(.96);
+  transition:opacity .55s var(--ease),transform .55s var(--ease)}
+.reveal.in{opacity:1;transform:perspective(1000px) translateY(0) rotateX(0deg) scale(1)}
+/* The d1-d5 stagger used to hold elements back on a fixed schedule after their trigger, which is
+   exactly the "whole group cascades together" effect we no longer want — each element should animate
+   purely off its own scroll position. Kept as no-op classes so the markup does not need touching. */
+.d1,.d2,.d3,.d4,.d5{transition-delay:0s}
 
 /* =========================================================
    RESPONSIVE
@@ -503,27 +578,27 @@ body.no-motion .dock-wrap{height:100svh}
   --e-line:rgba(255,255,255,.14);
   --e-line-2:rgba(255,255,255,.26);
   --e-txt:#e9edf5;
-  --e-muted:#999999;
-  --e-amber:#94b3ff;
-  /* Was #e5352b. Only ever used to tint two timecode readouts in the mockup (.ae-tc and the
-     scrubber's current-time digits), i.e. an accent, not a semantic warning — so it goes blue with
-     the rest of the theme. Kept under the --e-red name so the mockup's markup/selectors are
-     untouched. */
-  --e-red:#6b96ff;
-  /* GREEN->BLUE: these two are the AE mockup's own layer-swatch palette, not site theme tokens,
-     but both were green-family and --e-teal is visibly on screen (the glowing status dot in the
-     mockup's status bar), so they were shifted to a blue-leaning cyan to match the rebrand.
-     --e-green is currently unreferenced; retinted anyway so it cannot reintroduce green later. */
-  --e-teal:#407fff;
-  --e-green:#6b96ff;
-  --e-purple:#6b96ff;
-  --e-blue:#6b96ff;
+  --e-muted:#8b93a8;
+  --e-amber:#f4c451;
+  /* Restored to the original #e5352b (the since-reverted blue rebrand had flattened this, along
+     with every swatch below, to near-identical blues — see the theme reversion note at the top of
+     this file). Tints two timecode readouts in the mockup (.ae-tc and the scrubber's current-time
+     digits). */
+  --e-red:#e5352b;
+  /* The AE mockup's own layer-swatch palette — distinct colors per timeline layer, not site theme
+     tokens. Restored to their original values; the blue rebrand had collapsed all four of these
+     (teal/green/purple/blue) to the same #6b96ff, which is why the mockup's timeline briefly lost
+     its multi-color layer coding. */
+  --e-teal:#43d4bd;
+  --e-green:#5fd08a;
+  --e-purple:#9a86ff;
+  --e-blue:#5aa9ff;
   --e-glass:rgba(255,255,255,.07);
   --e-glass-hi:inset 0 1px 0 rgba(255,255,255,.3),inset 0 0 0 1px rgba(255,255,255,.05);
   --e-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
   position:relative;
   margin:0 auto;
-  background:linear-gradient(180deg,#1f2021,#080808);
+  background:linear-gradient(180deg,#0e0f13,#08090c);
   border:1px solid var(--e-line);
   box-shadow:0 70px 160px -60px rgba(0,0,0,.9),0 1px 0 rgba(255,255,255,.08) inset,0 0 0 1px rgba(255,255,255,.03) inset;
   font-family:var(--e-mono);color:var(--e-txt);
@@ -540,10 +615,10 @@ body.no-motion .dock-wrap{height:100svh}
 .editor::before{
   content:"";position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;overflow:hidden;
   background:
-    radial-gradient(480px 360px at 12% -6%,rgba(64,127,255,.5),transparent 62%),
-    radial-gradient(420px 340px at 88% 6%,rgba(64,127,255,.4),transparent 60%),
-    radial-gradient(460px 380px at 55% 108%,rgba(0,85,255,.34),transparent 62%),
-    radial-gradient(360px 300px at 100% 100%,rgba(64,127,255,.3),transparent 60%);
+    radial-gradient(480px 360px at 12% -6%,rgba(63,163,122,.5),transparent 62%),
+    radial-gradient(420px 340px at 88% 6%,rgba(63,163,122,.4),transparent 60%),
+    radial-gradient(460px 380px at 55% 108%,rgba(46,111,82,.34),transparent 62%),
+    radial-gradient(360px 300px at 100% 100%,rgba(63,163,122,.3),transparent 60%);
   filter:blur(6px);
 }
 .editor *{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.3) transparent}
@@ -581,16 +656,16 @@ body.no-motion .dock-wrap{height:100svh}
    back on these three rules. */
 .ae-traffic{display:flex;align-items:center;gap:7px;flex:none;margin-right:2px}
 .ae-traffic i{width:11px;height:11px;border-radius:50%;display:block}
-.ae-traffic .red{background:#6b96ff;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
-.ae-traffic .amber{background:#407fff;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
-.ae-traffic .green{background:#0055ff;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.ae-traffic .red{background:#ff5f57;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.ae-traffic .amber{background:#febc2e;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.ae-traffic .green{background:#28c840;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
 .ae-logo{display:flex;align-items:center;gap:8px;font-weight:700;font-size:11px;letter-spacing:.1em;color:var(--e-txt);flex:none}
 .ae-logo .mk{width:20px;height:20px;border-radius:7px;display:grid;place-items:center;font-size:9px;font-weight:700;
-  color:#ffffff;background:linear-gradient(135deg,rgba(107,150,255,.55),rgba(107,150,255,.35));
-  border:1px solid rgba(194,211,255,.5);box-shadow:var(--e-glass-hi)}
+  color:#dfe3ff;background:linear-gradient(135deg,rgba(150,140,255,.55),rgba(90,169,255,.35));
+  border:1px solid rgba(200,195,255,.5);box-shadow:var(--e-glass-hi)}
 .ae-menu{display:flex;align-items:center;gap:1px;min-width:0;overflow:hidden}
 .ae-menu span{font-size:11px;color:var(--e-muted);padding:3px 7px;border-radius:5px;white-space:nowrap;transition:.18s}
-.ae-menu span:hover{color:var(--e-txt);background:rgba(140,150,180,.1)}
+.ae-menu span:hover{color:var(--e-txt);background:rgba(125,145,200,.1)}
 .ae-menubar .ae-tc{margin-left:auto;font-size:11px;letter-spacing:.1em;color:var(--e-muted);white-space:nowrap;flex:none}
 .ae-toolbar{display:flex;align-items:center;gap:4px;height:40px;padding:0 10px;
   border-bottom:1px solid var(--e-line);
@@ -601,8 +676,8 @@ body.no-motion .dock-wrap{height:100svh}
   border:1px solid transparent;background:none;transition:.16s}
 .ae-tool:hover{color:var(--e-txt);background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.04));
   border-color:rgba(255,255,255,.18);box-shadow:var(--e-glass-hi)}
-.ae-tool.active{color:#fff;background:linear-gradient(180deg,rgba(64,127,255,.7),rgba(0,85,255,.55));
-  border-color:rgba(148,179,255,.5);box-shadow:var(--e-glass-hi),0 4px 14px -4px rgba(64,127,255,.6)}
+.ae-tool.active{color:#fff;background:linear-gradient(180deg,rgba(63,163,122,.7),rgba(46,111,82,.55));
+  border-color:rgba(120,220,180,.5);box-shadow:var(--e-glass-hi),0 4px 14px -4px rgba(63,163,122,.6)}
 .ae-tool svg{width:14px;height:14px}
 .ae-toolsep{width:1px;height:18px;background:var(--e-line);margin:0 6px;flex:none}
 
@@ -619,8 +694,8 @@ body.no-motion .dock-wrap{height:100svh}
 .ae-assets{flex:1;overflow-y:auto;padding:6px}
 .ae-asset{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:10px;cursor:pointer;transition:.15s}
 .ae-asset:hover{background:linear-gradient(180deg,rgba(255,255,255,.1),rgba(255,255,255,.03))}
-.ae-asset.sel{background:linear-gradient(180deg,rgba(107,150,255,.28),rgba(107,150,255,.1));
-  outline:1px solid rgba(148,179,255,.4);box-shadow:var(--e-glass-hi)}
+.ae-asset.sel{background:linear-gradient(180deg,rgba(90,169,255,.28),rgba(90,169,255,.1));
+  outline:1px solid rgba(150,195,255,.4);box-shadow:var(--e-glass-hi)}
 .ae-thumb{width:30px;height:20px;border-radius:6px;flex:none;display:grid;place-items:center;overflow:hidden;
   background:rgba(255,255,255,.06);border:1px solid var(--e-line);color:var(--e-muted)}
 .ae-thumb svg{width:13px;height:13px}
@@ -635,7 +710,7 @@ body.no-motion .dock-wrap{height:100svh}
 .ae-tab{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--e-muted);padding:6px 14px;
   border-radius:100px;cursor:pointer;white-space:nowrap;transition:.2s;margin:3px 0}
 .ae-tab:hover{color:var(--e-txt)}
-.ae-tab.active{color:#fff;background:linear-gradient(180deg,rgba(107,150,255,.4),rgba(107,150,255,.16));
+.ae-tab.active{color:#fff;background:linear-gradient(180deg,rgba(90,169,255,.4),rgba(90,169,255,.16));
   box-shadow:var(--e-glass-hi)}
 .ae-tab i{width:6px;height:6px;border-radius:1px;background:var(--e-blue);flex:none}
 .ae-comp-tabs .ae-tc{margin-left:auto;font-size:11px;letter-spacing:.08em;color:var(--e-red)}
@@ -659,8 +734,8 @@ body.no-motion .dock-wrap{height:100svh}
    no non-uniform scale, and the mockup's panels simply get wider on short screens. */
 .ae-viewer{flex:1;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:0;
   background:
-    radial-gradient(360px 280px at 20% 15%,rgba(64,127,255,.22),transparent 65%),
-    radial-gradient(320px 260px at 85% 85%,rgba(107,150,255,.18),transparent 65%),
+    radial-gradient(360px 280px at 20% 15%,rgba(63,163,122,.22),transparent 65%),
+    radial-gradient(320px 260px at 85% 85%,rgba(46,111,82,.18),transparent 65%),
     #000000}
 /* #dockSlot is an EMPTY div — the video that visually fills it is a separate,
    absolutely-positioned element sized to match this rect (see SmoothScroll.tsx
@@ -705,11 +780,11 @@ body.no-motion .dock-wrap{height:100svh}
 .ae-prop-grp{font-size:9.5px;letter-spacing:.12em;color:var(--e-muted);text-transform:uppercase;margin:5px 0 3px}
 .ae-prop{display:flex;align-items:center;gap:9px;padding:2px 0;font-size:11px}
 .ae-sw{width:12px;height:12px;border-radius:50%;border:1px solid var(--e-line-2);flex:none;cursor:pointer;transition:.15s}
-.ae-sw:hover{border-color:var(--e-amber);box-shadow:0 0 6px rgba(148,179,255,.5)}
-.ae-sw.on{background:var(--e-amber);border-color:var(--e-amber);box-shadow:0 0 8px rgba(148,179,255,.6)}
+.ae-sw:hover{border-color:var(--e-amber);box-shadow:0 0 6px rgba(244,196,81,.5)}
+.ae-sw.on{background:var(--e-amber);border-color:var(--e-amber);box-shadow:0 0 8px rgba(244,196,81,.6)}
 .ae-prop .lbl{color:var(--e-muted);white-space:nowrap}
-.ae-prop .val{margin-left:auto;display:flex;gap:9px;color:#a3bcff;font-variant-numeric:tabular-nums;white-space:nowrap}
-.ae-prop .val span{cursor:pointer}.ae-prop .val span:hover{color:#c2d3ff}
+.ae-prop .val{margin-left:auto;display:flex;gap:9px;color:#7fd4ff;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ae-prop .val span{cursor:pointer}.ae-prop .val span:hover{color:#aee5ff}
 .ae-align{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;margin:5px 0}
 .ae-align button{aspect-ratio:1;border:1px solid var(--e-line);
   background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.02));border-radius:9px;
@@ -754,7 +829,7 @@ body.no-motion .dock-wrap{height:100svh}
   display:grid;place-items:center;cursor:pointer;transition:.2s}
 .e-ctrls button:hover{border-color:var(--e-line-2);background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.05));
   box-shadow:var(--e-glass-hi)}
-.e-ctrls button.play{background:linear-gradient(180deg,#fff,#dfe4ee);color:#080808;border-color:transparent;width:34px;
+.e-ctrls button.play{background:linear-gradient(180deg,#fff,#dfe4ee);color:#0a0f1c;border-color:transparent;width:34px;
   box-shadow:0 4px 14px -4px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.8)}
 .e-ctrls svg{width:13px;height:13px}
 .ae-counter{font-size:11px;letter-spacing:.1em;border:1px solid var(--e-line);border-radius:100px;padding:6px 13px;
@@ -766,8 +841,8 @@ body.no-motion .dock-wrap{height:100svh}
   padding:5px 11px;cursor:pointer;transition:.15s;
   background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.01))}
 .ae-meta:hover{color:var(--e-txt);box-shadow:var(--e-glass-hi)}
-.ae-meta.on{color:#131313;border-color:rgba(148,179,255,.5);
-  background:linear-gradient(180deg,#b8ccff,var(--e-amber));box-shadow:var(--e-glass-hi)}
+.ae-meta.on{color:#1a1408;border-color:rgba(244,196,81,.5);
+  background:linear-gradient(180deg,#ffd76b,var(--e-amber));box-shadow:var(--e-glass-hi)}
 /* No visible scrollbar here: overflow-x:auto is intentional (the timeline's edge-fade below
    relies on it for narrow/mobile viewports where the row is wider than the panel), but a
    visible scrollbar bar under the compact mockup reads as a UI defect, not an affordance. The
@@ -790,9 +865,9 @@ body.no-motion .dock-wrap{height:100svh}
 @media (max-width:820px){
   .e-timeline-wrap::after{content:"";position:absolute;top:38px;right:0;bottom:0;width:26px;
     z-index:7;pointer-events:none;
-    background:linear-gradient(270deg,rgba(8,8,8,.95),transparent)}
+    background:linear-gradient(270deg,rgba(11,17,32,.95),transparent)}
 }
-.ae-row{display:grid;grid-template-columns:300px 1fr;align-items:stretch;border-bottom:1px solid rgba(140,150,180,.06)}
+.ae-row{display:grid;grid-template-columns:300px 1fr;align-items:stretch;border-bottom:1px solid rgba(125,145,200,.06)}
 /* was a hardcoded navy (#0e0e0f), the same off-theme-blue issue as the .editor::before glow
    above; var(--bg-2) matches the site's own dark-charcoal token instead. */
 .ae-colhead{position:sticky;top:0;z-index:5;background:var(--bg-2)}
@@ -803,7 +878,7 @@ body.no-motion .dock-wrap{height:100svh}
 .ae-ruler{position:relative;display:flex;justify-content:space-between;align-items:center;height:24px;padding:0 6px;
   font-size:9px;letter-spacing:.04em;color:var(--e-muted)}
 .ae-layer .info{height:26px}
-.ae-layer:hover{background:rgba(140,150,180,.05)}
+.ae-layer:hover{background:rgba(125,145,200,.05)}
 .ae-lname{display:flex;align-items:center;gap:5px;min-width:0;padding:0 7px}
 .ae-eye,.ae-lock{width:13px;height:13px;flex:none;color:var(--e-muted);cursor:pointer;transition:.15s}
 .ae-eye:hover,.ae-lock:hover{color:var(--e-txt)}
@@ -815,22 +890,22 @@ body.no-motion .dock-wrap{height:100svh}
 .ae-bar{position:absolute;top:50%;transform:translateY(-50%);height:18px;border-radius:100px;overflow:hidden;
   display:flex;align-items:center;padding:0 9px;font-size:9px;color:rgba(255,255,255,.95);white-space:nowrap;cursor:pointer;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 0 0 1px rgba(255,255,255,.14);text-overflow:ellipsis}
-.ae-bar.vid{background:linear-gradient(180deg,rgba(148,179,255,.55),rgba(148,179,255,.24))}
-.ae-bar.vidb{background:linear-gradient(180deg,rgba(107,150,255,.55),rgba(107,150,255,.24))}
-.ae-bar.mg{background:linear-gradient(180deg,rgba(64,127,255,.58),rgba(64,127,255,.26))}
-.ae-bar.aud{background:rgba(64,127,255,.1);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),inset 0 0 0 1px rgba(64,127,255,.45)}
+.ae-bar.vid{background:linear-gradient(180deg,rgba(244,196,81,.55),rgba(244,196,81,.24))}
+.ae-bar.vidb{background:linear-gradient(180deg,rgba(90,169,255,.55),rgba(90,169,255,.24))}
+.ae-bar.mg{background:linear-gradient(180deg,rgba(154,134,255,.58),rgba(154,134,255,.26))}
+.ae-bar.aud{background:rgba(67,212,189,.1);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),inset 0 0 0 1px rgba(67,212,189,.45)}
 /* playhead (JS positions left via measured gutter) */
 .e-playhead{position:absolute;top:0;bottom:0;left:300px;width:0;z-index:6;pointer-events:none}
 .ph-line{position:absolute;top:0;bottom:0;left:0;width:1.5px;
-  background:linear-gradient(180deg,var(--e-amber),rgba(148,179,255,.2));box-shadow:0 0 10px rgba(148,179,255,.5)}
+  background:linear-gradient(180deg,var(--e-amber),rgba(244,196,81,.2));box-shadow:0 0 10px rgba(244,196,81,.5)}
 .ph-diamond{position:absolute;top:-1px;left:-4.5px;width:9px;height:9px;background:var(--e-amber);
-  transform:rotate(45deg);box-shadow:0 0 10px rgba(148,179,255,.7)}
+  transform:rotate(45deg);box-shadow:0 0 10px rgba(244,196,81,.7)}
 /* audio waveforms inside the bars */
 .wave,.wave2{position:absolute;inset:2px;display:flex;align-items:center;gap:1px;overflow:hidden;border-radius:2px;padding:0 4px}
-.wave{background:linear-gradient(180deg,rgba(64,127,255,.14),rgba(64,127,255,.04))}
-.wave i{flex:1;min-width:1px;background:rgba(64,127,255,.6);border-radius:1px}
-.wave2{background:linear-gradient(180deg,rgba(107,150,255,.14),rgba(107,150,255,.04))}
-.wave2 i{flex:1;min-width:1px;background:rgba(107,150,255,.55);border-radius:1px}
+.wave{background:linear-gradient(180deg,rgba(67,212,189,.14),rgba(67,212,189,.04))}
+.wave i{flex:1;min-width:1px;background:rgba(67,212,189,.6);border-radius:1px}
+.wave2{background:linear-gradient(180deg,rgba(95,208,138,.14),rgba(95,208,138,.04))}
+.wave2 i{flex:1;min-width:1px;background:rgba(95,208,138,.55);border-radius:1px}
 
 /* status bar */
 .e-status{position:relative;flex:none;height:28px;display:flex;align-items:center;justify-content:space-between;gap:12px;
@@ -876,29 +951,13 @@ body.no-motion .dock-wrap{height:100svh}
 .about-sec{position:relative;padding:clamp(56px,7vw,96px) 0;background-color:transparent;overflow:hidden}
 .about-grid{position:relative;z-index:1;display:grid;grid-template-columns:1fr 1fr;gap:clamp(36px,6vw,80px);align-items:center}
 
-/* --- left: photo card w/ spotlight lighting behind the transparent cutout --- */
-.about-photo{position:relative;aspect-ratio:4/5;border-radius:var(--radius-lg);overflow:hidden;
-  background:radial-gradient(60% 55% at 50% 0%,#1f2021 0%,#080808 55%,#000000 100%);
-  border:1px solid var(--line);box-shadow:0 40px 100px -40px rgba(0,0,0,.8)}
-/* the light source: a bright disc at the top + a soft downward beam (Image 3 mood) */
-.about-photo::before{
-  content:"";position:absolute;left:50%;top:-6%;width:46%;aspect-ratio:1;transform:translateX(-50%);
-  background:radial-gradient(circle,rgba(255,255,255,.9) 0%,rgba(64,127,255,.35) 38%,transparent 70%);
-  filter:blur(18px);opacity:.9;z-index:1;
-}
-.about-photo::after{
-  content:"";position:absolute;left:50%;top:0;width:70%;height:100%;transform:translateX(-50%);
-  background:conic-gradient(from 180deg at 50% 0%,transparent 34%,rgba(255,255,255,.14) 50%,transparent 66%);
-  filter:blur(6px);z-index:1;mix-blend-mode:screen;
-}
-.about-photo .cutout{position:relative;z-index:2;width:100%;height:100%;object-fit:cover;object-position:50% 15%;
+/* --- left: transparent cutout, no card/background box — sits directly on the page --- */
+.about-photo{position:relative;display:flex;align-items:flex-end;justify-content:center;min-height:520px}
+.about-photo .cutout{position:relative;z-index:2;width:100%;height:auto;max-height:640px;object-fit:contain;
   filter:drop-shadow(0 30px 50px rgba(0,0,0,.55));}
-.about-photo .grain{position:absolute;inset:0;z-index:3;opacity:.05;mix-blend-mode:overlay;pointer-events:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
-.about-photo .vignette{position:absolute;inset:0;z-index:3;pointer-events:none;
-  box-shadow:inset 0 -60px 90px -40px rgba(0,0,0,.65),inset 0 60px 90px -50px rgba(0,0,0,.35);}
-.about-glow{position:absolute;left:50%;bottom:-8%;width:70%;height:26%;transform:translateX(-50%);
-  background:radial-gradient(ellipse,rgba(64,127,255,.22) 0%,transparent 70%);filter:blur(30px);z-index:0}
+.about-photo .grain{display:none}
+.about-photo .vignette{display:none}
+.about-glow{display:none}
 
 /* --- right: copy column --- */
 .about-copy .eyebrow{margin-bottom:22px}
@@ -969,26 +1028,42 @@ body.no-motion .dock-wrap{height:100svh}
 html.lf-lock,html.lf-lock body{overflow:hidden}
 .lf-overlay{position:fixed;inset:0;z-index:300;visibility:hidden;pointer-events:none}
 .lf-overlay.open{visibility:visible;pointer-events:auto}
-.lf-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.86);backdrop-filter:blur(6px);
+.lf-backdrop{position:absolute;inset:0;background:rgba(4,4,6,.86);backdrop-filter:blur(6px);
   opacity:0;transition:opacity .35s var(--ease);cursor:pointer}
 .lf-overlay.open .lf-backdrop{opacity:1}
 .lf-modal{position:fixed;border-radius:16px;overflow:hidden;background:#000;
   box-shadow:0 40px 120px -30px rgba(0,0,0,.8);will-change:left,top,width,height}
-.lf-modal video{width:100%;height:100%;object-fit:contain;background:#000;display:block}
-.lf-close,.lf-unmute{border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.5);color:#fff;
-  backdrop-filter:blur(6px);cursor:pointer;transition:.2s;z-index:3}
+/* was `.lf-modal video` — the modal plays a YouTube iframe now instead of a local <video>, so the
+   selector is retargeted; object-fit doesn't apply to iframes (the embed always fills its box),
+   so that property is dropped, everything else is unchanged. */
+.lf-frame-wrap{position:absolute;inset:0;overflow:hidden;background:#000}
+.lf-modal iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000;display:block}
+/* Poster held over the player while it boots, then faded out. YouTube shows its title for about a
+   second at startup before auto-hiding it; the shield below cannot stop that one (it is not
+   hover-triggered), so it is simply covered. Uses the originating card's own poster image, so the
+   card -> modal transition shows the same frame throughout and the swap is invisible. */
+.lf-cover{position:absolute;inset:0;z-index:2;background-size:cover;background-position:center;
+  background-repeat:no-repeat;opacity:1;transition:opacity .45s var(--ease);pointer-events:none}
+.lf-cover.is-hidden{opacity:0}
+/* The reason no YouTube branding is visible. Its title/avatar/logo overlay is painted only on
+   hover or pause, so this transparent layer swallows every pointer event before the iframe can
+   see one. Play/pause is handed back through it via the postMessage player API (VideoPopup.tsx),
+   so the viewer keeps control while YouTube's chrome never renders. */
+.lf-shield{position:absolute;inset:0;z-index:3;cursor:pointer;background:transparent}
+/* .lf-unmute no longer exists in the markup — it toggled a <video>'s own muted state, which has
+   no equivalent on a cross-origin iframe (YouTube owns its own audio, and the embed already opens
+   unmuted since it's only ever created by a click). Selector trimmed to match. */
+/* z-index raised 3 -> 5 to sit above .lf-shield (z-index:3). .lf-frame-wrap is position:absolute
+   with z-index:auto, so it creates no stacking context and the shield competes directly with this
+   button; the shield comes later in the DOM, so at equal z-index it would win and swallow every
+   click on the close button. */
+.lf-close{border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.5);color:#fff;
+  backdrop-filter:blur(6px);cursor:pointer;transition:.2s;z-index:5}
 .lf-close{position:absolute;top:12px;right:12px;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;line-height:1}
 .lf-close:hover{background:var(--accent);color:var(--accent-ink);border-color:transparent}
 .lf-close svg{width:15px;height:15px}
-.lf-unmute{position:absolute;bottom:12px;left:12px;display:flex;align-items:center;gap:8px;
-  padding:8px 13px;border-radius:100px;font-size:12px;letter-spacing:.04em}
-.lf-unmute:hover{background:rgba(0,0,0,.7)}
-.lf-unmute svg{width:15px;height:15px;flex:none}
-.lf-unmute .ic-on{display:none}
-.lf-unmute.is-unmuted .ic-muted{display:none}
-.lf-unmute.is-unmuted .ic-on{display:block}
-.lf-unmute .lbl::after{content:"Tap for sound"}
-.lf-unmute.is-unmuted .lbl::after{content:"Sound on"}
+/* .lf-unmute's ruleset removed with it — the button toggled a <video>'s muted state, which has no
+   equivalent on the YouTube iframe that replaced it (see content/popup.ts). */
 
 /* =========================================================
    SHORT FORM PORTFOLIO SECTION
@@ -1022,7 +1097,7 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
 @media (min-width:860px){.sf-stage{display:block}}
 .sf-glow{position:absolute;bottom:2%;left:50%;width:min(92%,990px);height:120px;transform:translateX(-50%);
   pointer-events:none;border-radius:50%;filter:blur(60px);
-  background:radial-gradient(ellipse,rgba(64,127,255,.07),transparent 70%)}
+  background:radial-gradient(ellipse,rgba(63,163,122,.07),transparent 70%)}
 
 /* FIX 2b: hover z-index must clear the fixed nav (z-index:100) so a lifted card renders on
    top of it instead of tucking underneath — bumped from 50 to 500 (set inline by JS below,
@@ -1034,7 +1109,10 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
   transition:transform .62s cubic-bezier(.22,1,.36,1),filter .62s cubic-bezier(.22,1,.36,1)}
 .sf-card-face{position:relative;width:100%;height:100%;overflow:hidden;border-radius:18px;background:var(--surface);
   box-shadow:0 20px 44px -14px rgba(0,0,0,.85),0 0 0 1px rgba(255,255,255,.06)}
-.sf-card-face video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+/* was `.sf-card-face video` — the card's playable video became a static poster <img> when
+   playback moved to a YouTube popup, so the selector is retargeted to match; the rule itself
+   (fill the card, cover-fit) is unchanged. */
+.sf-card-face img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 .sf-card-face::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:1;
   background:linear-gradient(180deg,rgba(0,0,0,.55) 0%,rgba(0,0,0,0) 26%,rgba(0,0,0,0) 60%,rgba(0,0,0,.72) 100%)}
 .sf-card-face::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:1;
@@ -1053,7 +1131,8 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
 .sf-m-card{position:relative;width:100%;max-width:340px;margin:0 auto;aspect-ratio:9/16;border-radius:16px;overflow:hidden;
   background:var(--surface);box-shadow:0 18px 40px -16px rgba(0,0,0,.85);
   border:1px solid var(--line)}
-.sf-m-card video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+/* was `.sf-m-card video` — same retarget as .sf-card-face img above. */
+.sf-m-card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 .sf-m-card::before{content:"";position:absolute;inset:0;pointer-events:none;
   background:linear-gradient(180deg,rgba(0,0,0,.5) 0%,rgba(0,0,0,0) 30%,rgba(0,0,0,.7) 100%)}
 .sf-m-card{cursor:pointer}
@@ -1085,8 +1164,8 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
 .marquee{position:relative;overflow:hidden;width:100%}
 .marquee::before,.marquee::after{content:"";position:absolute;top:0;bottom:0;width:clamp(60px,12vw,180px);
   z-index:2;pointer-events:none}
-.marquee::before{left:0;background:linear-gradient(90deg,var(--bg) 0%,rgba(0,0,0,.85) 40%,transparent 100%)}
-.marquee::after{right:0;background:linear-gradient(270deg,var(--bg) 0%,rgba(0,0,0,.85) 40%,transparent 100%)}
+.marquee::before{left:0;background:linear-gradient(90deg,var(--bg) 0%,rgba(6,6,7,.85) 40%,transparent 100%)}
+.marquee::after{right:0;background:linear-gradient(270deg,var(--bg) 0%,rgba(6,6,7,.85) 40%,transparent 100%)}
 .marquee + .marquee{margin-top:clamp(16px,2.2vw,24px)}
 /* ZOOM FIX: the loop distance used to be a bare `-50%`, a CSS percentage resolved against the
    track's own COMPOSITED rendered width. Same root cause already documented/fixed in
@@ -1121,7 +1200,7 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
 .thumb-card{flex:none;width:clamp(260px,42vw,620px);aspect-ratio:16/9;border-radius:16px;overflow:hidden;
   border:1px solid var(--line);background:var(--surface);box-shadow:0 22px 50px -24px rgba(0,0,0,.8);
   transition:border-color .3s}
-.thumb-card:hover{border-color:rgba(64,127,255,.4)}
+.thumb-card:hover{border-color:rgba(63,163,122,.4)}
 .thumb-card img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .6s var(--ease)}
 .thumb-card:hover img{transform:scale(1.06)}
 
@@ -1137,7 +1216,7 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
   box-shadow:0 24px 50px -32px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.02) inset}
 .stage-card,.svc-card,.thumb-card,.contact-item{position:relative;overflow:hidden}
 .stage-card::before{content:"";position:absolute;top:0;left:8%;right:8%;height:1px;
-  background:linear-gradient(90deg,transparent,rgba(64,127,255,.75),transparent)}
+  background:linear-gradient(90deg,transparent,rgba(63,163,122,.75),transparent)}
 .stage-top{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px}
 /* 3D icon badge: a diagonal emerald gradient (light corner to dark corner) plus a layered
    inset highlight/shadow (glossy top sheen + rounded-off bottom edge) and a soft outer drop
@@ -1146,12 +1225,12 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
    magnifying glass, edit/motion-graphics squares, delivery paper-plane). Was a flat translucent
    blue tint before this pass; recolored into the emerald family for sitewide cohesion. */
 .stage-icon{width:46px;height:46px;flex:none;border-radius:13px;display:grid;place-items:center;
-  background:linear-gradient(135deg,var(--accent-bright),var(--accent) 65%,#002a80 100%);
-  box-shadow:0 10px 22px -9px rgba(0,85,255,.6),inset 0 1px 0 rgba(255,255,255,.35),inset 0 -3px 6px -2px rgba(0,0,0,.35);
+  background:linear-gradient(135deg,var(--accent-bright),var(--accent) 65%,#1d4a37 100%);
+  box-shadow:0 10px 22px -9px rgba(46,111,82,.6),inset 0 1px 0 rgba(255,255,255,.35),inset 0 -3px 6px -2px rgba(0,0,0,.35);
   color:#fff}
 .stage-icon svg{width:22px;height:22px}
 .stage-pill{font-family:var(--font-display);font-size:11.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
-  color:var(--accent-bright);padding:6px 13px;border-radius:100px;background:rgba(64,127,255,.12);border:1px solid rgba(64,127,255,.28)}
+  color:var(--accent-bright);padding:6px 13px;border-radius:100px;background:rgba(63,163,122,.12);border:1px solid rgba(63,163,122,.28)}
 .stage-card h3{font-family:var(--font-display);font-weight:700;font-size:clamp(1.2rem,1.8vw,1.4rem);
   letter-spacing:-.01em;margin-bottom:10px}
 .stage-card p{color:var(--muted);font-size:15px;line-height:1.6}
@@ -1164,8 +1243,7 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
    to that ancestor overflow), so this element just needs to sit in normal flow as the right
    grid column. Mobile (<=900px) keeps it static above the cards. */
 .hiw-media-wrap{position:relative}
-.hiw-media{position:relative;border-radius:22px;overflow:hidden;aspect-ratio:3/4;
-  border:1px solid var(--line);box-shadow:0 40px 90px -40px rgba(0,0,0,.8)}
+.hiw-media{position:relative;border-radius:22px;overflow:hidden;aspect-ratio:3/4}
 /* RESPONSIVE FIX: on desktop (>=901px, the only width where HowIWork.tsx actually pins this box
    with GSAP ScrollTrigger — see `mm.add("(min-width: 901px)", ...)`), .hiw-media's height was
    driven purely by the grid column's WIDTH via aspect-ratio:3/4, with nothing tying it to the
@@ -1189,12 +1267,12 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
 @media (min-width:901px){
   .hiw-media-wrap{width:min(100%,calc((100svh - 150px) * 3 / 4))}
 }
-.hiw-media img{width:100%;height:100%;object-fit:cover;display:block}
+.hiw-media img{width:100%;height:100%;object-fit:cover;display:block;mix-blend-mode:lighten}
 /* FIX 4c: 4 images stacked in the same box, only the active one opaque, box never moves */
 .hiw-img{position:absolute;inset:0;opacity:0;transition:opacity .6s var(--ease);z-index:0}
 .hiw-img.active{opacity:1;z-index:1}
 .hiw-media-glow{position:absolute;left:50%;bottom:-8%;width:70%;height:24%;transform:translateX(-50%);
-  background:radial-gradient(ellipse,rgba(64,127,255,.28),transparent 70%);filter:blur(34px);z-index:-1}
+  background:radial-gradient(ellipse,rgba(63,163,122,.28),transparent 70%);filter:blur(34px);z-index:-1}
 @media (max-width:900px){
   .hiw-grid{grid-template-columns:1fr;gap:32px}
   .hiw-media-wrap{position:static;order:-1;max-width:440px;margin:0 auto}
@@ -1208,13 +1286,13 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
   backdrop-filter:blur(16px) saturate(140%);-webkit-backdrop-filter:blur(16px) saturate(140%);
   border:1px solid var(--line);box-shadow:0 24px 50px -32px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.06);
   transition:transform .5s var(--ease),border-color .3s,background .3s,box-shadow .5s var(--ease);overflow:hidden}
-.svc-card:hover{transform:translateY(-6px);border-color:rgba(64,127,255,.4);background:var(--surface-2);
-  box-shadow:0 24px 60px -30px rgba(64,127,255,.4)}
+.svc-card:hover{transform:translateY(-6px);border-color:rgba(63,163,122,.4);background:var(--surface-2);
+  box-shadow:0 24px 60px -30px rgba(63,163,122,.4)}
 /* Same 3D glossy-badge treatment as How I Work's .stage-icon, on Services' already
    content-relevant glyphs (long-form camera/play, short-form lightning bolt, thumbnail image). */
 .svc-icon{width:54px;height:54px;border-radius:50%;display:grid;place-items:center;margin-bottom:22px;
-  background:linear-gradient(135deg,var(--accent-bright),var(--accent) 65%,#002a80 100%);
-  box-shadow:0 10px 24px -9px rgba(0,85,255,.6),inset 0 1px 0 rgba(255,255,255,.35),inset 0 -3px 6px -2px rgba(0,0,0,.35);
+  background:linear-gradient(135deg,var(--accent-bright),var(--accent) 65%,#1d4a37 100%);
+  box-shadow:0 10px 24px -9px rgba(46,111,82,.6),inset 0 1px 0 rgba(255,255,255,.35),inset 0 -3px 6px -2px rgba(0,0,0,.35);
   color:#fff}
 .svc-icon svg{width:24px;height:24px}
 .svc-arrow{position:absolute;top:clamp(26px,2.6vw,34px);right:clamp(26px,2.6vw,34px);color:var(--muted-2);
@@ -1281,13 +1359,13 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
 .contact-item{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:14px;
   text-decoration:none;border:1px solid var(--line);background:var(--surface-2);
   transition:transform .4s var(--ease),border-color .3s,background .3s,box-shadow .4s var(--ease)}
-.contact-item:hover{transform:translateY(-3px);border-color:rgba(64,127,255,.4);background:rgba(64,127,255,.05);
-  box-shadow:0 16px 40px -24px rgba(64,127,255,.4)}
-.contact-item:hover .contact-item-icon{box-shadow:0 12px 26px -8px rgba(0,85,255,.75),inset 0 1px 0 rgba(255,255,255,.4),inset 0 -3px 6px -2px rgba(0,0,0,.3)}
+.contact-item:hover{transform:translateY(-3px);border-color:rgba(63,163,122,.4);background:rgba(63,163,122,.05);
+  box-shadow:0 16px 40px -24px rgba(63,163,122,.4)}
+.contact-item:hover .contact-item-icon{box-shadow:0 12px 26px -8px rgba(46,111,82,.75),inset 0 1px 0 rgba(255,255,255,.4),inset 0 -3px 6px -2px rgba(0,0,0,.3)}
 .contact-item-icon{width:44px;height:44px;flex:none;border-radius:12px;
   display:flex;align-items:center;justify-content:center;transition:box-shadow .3s;
-  background:linear-gradient(135deg,var(--accent-bright),var(--accent) 65%,#002a80 100%);
-  box-shadow:0 8px 18px -8px rgba(0,85,255,.55),inset 0 1px 0 rgba(255,255,255,.35),inset 0 -3px 6px -2px rgba(0,0,0,.35);
+  background:linear-gradient(135deg,var(--accent-bright),var(--accent) 65%,#1d4a37 100%);
+  box-shadow:0 8px 18px -8px rgba(46,111,82,.55),inset 0 1px 0 rgba(255,255,255,.35),inset 0 -3px 6px -2px rgba(0,0,0,.35);
   color:#fff}
 .contact-item-icon svg{width:22px;height:22px;display:block;flex:none}
 .contact-item-icon svg.ic-whatsapp{width:19px;height:19px}
@@ -1321,7 +1399,7 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
 /* Top row: brand mark (left) + "for queries" email + divider + 3 icon buttons (right),
    matching the Hysekt.xyz reference. Wraps on narrow screens rather than clipping. */
 .footer-top{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
-  gap:16px;margin-bottom:18px}
+  gap:16px;margin-bottom:18px;padding-top:18px;border-top:1px solid var(--line)}
 .footer-brand-mark{display:inline-flex}
 .footer-right{display:flex;align-items:center;flex-wrap:wrap;gap:16px}
 .footer-queries{display:flex;align-items:center;gap:9px;font-size:13.5px}
@@ -1369,261 +1447,4 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
   gap:10px;padding-top:18px;border-top:1px solid var(--line)}
 .footer-copy{color:var(--muted-2);font-size:13px}
 .footer-tagline{color:var(--muted-2);font-size:13px}
-
-
-/* =========================================================
-   SITE-WIDE GLASS CARDS + PER-SECTION IDENTITY
-   Appended last so it layers on top of each component's own rule without editing it.
-
-   The material is lifted from the AE editor's glass panels so the whole site reads as the same
-   substance: a top-to-bottom white wash (brighter at the top edge, where light lands),
-   backdrop-filter blur + saturate so what is behind genuinely refracts through, a 1px bright
-   top-edge highlight plus a hairline ring via inset box-shadow, and a soft coloured outer bloom.
-
-   Section identity comes from two variables rather than from different materials, so every card
-   is unmistakably the same component family while each section still reads as its own place:
-     --sec-accent : the hue of that section's bloom, border-lift and chips
-     --sec-bloom  : where the light appears to fall inside the card, so the sheen sits in a
-                    different corner section to section
-   Hues are the timeline's own swatch palette (emerald / teal / blue / amber / green / purple),
-   which is what keeps the variation feeling native rather than arbitrary.
-
-   ONLY colour-ish properties are set below — background, border-color, box-shadow,
-   backdrop-filter, color. No sizes, spacing, radii, or positioning are touched anywhere, and
-   borders are set via border-color on elements that already have a 1px border, so no box-model
-   value changes.
-   ========================================================= */
-:root{
-  --sec-accent:64,127,255;
-  --sec-bloom:12% 0%;
-  --glass-wash:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.018));
-  --glass-rim:inset 0 1px 0 rgba(255,255,255,.26),inset 0 0 0 1px rgba(255,255,255,.05);
-  --glass-drop:0 24px 58px -34px rgba(0,0,0,.75);
-  --glass-blur:blur(24px) saturate(180%);
-}
-/* These were originally SIX different hues (emerald / teal / blue / amber / green / purple) to
-   give each section its own identity. That variety is what made the page read as "mixed and off"
-   rather than themed, so they are now all tints of the one azure family (hue ~206-215), varying
-   only in lightness so the sections still differ subtly without introducing a second colour.
-   #process is called out because it tints the "STAGE n" pills — it was the most visible stray hue
-   of the original set. To reintroduce variety later, change these values only; every consumer
-   below reads them through var(--sec-accent). */
-#about       {--sec-accent:64,127,255;  --sec-bloom:12% 0%}
-#work        {--sec-accent:64,127,255;  --sec-bloom:100% 0%}
-#shorts      {--sec-accent:107,150,255;  --sec-bloom:0% 100%}
-#thumbnails  {--sec-accent:148,179,255;  --sec-bloom:100% 100%}
-#process     {--sec-accent:64,127,255;  --sec-bloom:50% -10%}
-#services    {--sec-accent:64,127,255; --sec-bloom:0% 0%}
-#faq         {--sec-accent:107,150,255;  --sec-bloom:50% 110%}
-#contact     {--sec-accent:64,127,255;  --sec-bloom:8% 100%}
-
-/* Cards proper: full glass. */
-.stage-card,
-.svc-card,
-.contact-item{
-  background:
-    radial-gradient(120% 92% at var(--sec-bloom),rgba(var(--sec-accent),.15),transparent 62%),
-    var(--glass-wash);
-  border-color:rgba(255,255,255,.14);
-  box-shadow:var(--glass-rim),var(--glass-drop),0 0 30px -18px rgba(var(--sec-accent),.55);
-  backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);
-}
-.stage-card:hover,
-.svc-card:hover,
-.contact-item:hover{
-  border-color:rgba(var(--sec-accent),.45);
-  box-shadow:var(--glass-rim),0 28px 64px -32px rgba(0,0,0,.78),
-             0 0 42px -14px rgba(var(--sec-accent),.7);
-}
-/* the thin light seam across each stage card's top edge, retinted to its section */
-.stage-card::before{
-  background:linear-gradient(90deg,transparent,rgba(var(--sec-accent),.75),transparent);
-}
-
-/* Chips and badges inside cards pick up the same hue so a section reads as one palette. */
-.stage-pill{
-  color:rgba(var(--sec-accent),1);
-  background:rgba(var(--sec-accent),.12);
-  border-color:rgba(var(--sec-accent),.3);
-}
-.stage-tag{
-  background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.015));
-  border-color:rgba(255,255,255,.14);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.18);
-  backdrop-filter:blur(12px) saturate(160%);-webkit-backdrop-filter:blur(12px) saturate(160%);
-}
-
-/* Media tiles are covered edge-to-edge by their own image/video, so an inset rim would sit
-   beneath that content and never show — they take the edge line and outer bloom only. */
-.lf-tile,
-.thumb-card,
-.sf-m-card{
-  border-color:rgba(255,255,255,.14);
-  box-shadow:var(--glass-drop),0 0 30px -18px rgba(var(--sec-accent),.55);
-}
-.lf-tile:hover,
-.thumb-card:hover{
-  border-color:rgba(var(--sec-accent),.5);
-  box-shadow:0 28px 64px -32px rgba(0,0,0,.78),0 0 42px -14px rgba(var(--sec-accent),.7);
-}
-
-/* FAQ is a divider list, not a panel — tinting its rule keeps the section's identity without
-   turning rows into cards (which would need padding, i.e. a layout change). */
-.faq-item{border-bottom-color:rgba(var(--sec-accent),.22)}
-.faq-item.open{border-bottom-color:rgba(var(--sec-accent),.45)}
-
-/* Marquee rows clip their overflow so the looping track's ends stay hidden. That same clip was
-   also slicing hover-lifted cards inside a marquee row: a card that lifts via translateY(-4px) on
-   hover has its bloom extend past its own border, so the top edge and glow were cut off flat
-   against the black background.
-   overflow:clip + overflow-clip-margin keeps the clip exactly where it was but lets painting
-   spill a little past it, which is precisely what this needs — unlike a padding gutter it changes
-   no box-model value, so row heights, the gap between rows, and the track geometry are untouched.
-   Horizontal spill is a non-issue: the parent .sec is itself overflow:hidden, and the row's own
-   ::before/::after edge fades still sit at its real edges. */
-.marquee{overflow:clip;overflow-clip-margin:60px}
-
-/* =========================================================
-   SCROLL-TRIGGERED 3D REVEALS
-   Built on the .reveal / .in mechanism that already exists — the IntersectionObserver in
-   SmoothScroll.tsx adds .in once, and every element that should animate is already tagged in the
-   content files with .reveal plus a .d1-.d5 stagger. No observers, no per-frame work, no markup
-   changes: this only enriches what the existing transition already animates.
-
-   PERFORMANCE: every rule animates ONLY `transform` and `opacity`, both compositor properties, so
-   nothing below triggers layout or paint while scrolling. Perspective lives inside each element's
-   own transform rather than on an ancestor, so no section wrapper becomes a 3D/stacking context.
-   `will-change` is deliberately unset — these fire once per element, and promoting dozens of
-   cards to permanent layers would cost far more than it saves.
-
-   TRANSITION LONGHANDS, NOT THE SHORTHAND: `transition:` also resets transition-delay, which
-   silently wiped the .d1-.d5 stagger (every card measured 0s and fired simultaneously). Using the
-   longhands leaves transition-delay untouched so the existing stagger classes keep working.
-   ========================================================= */
-
-/* Baseline: the existing rise gains a little depth. */
-.reveal{transform:perspective(1000px) translate3d(0,26px,-30px)}
-.reveal.in{transform:perspective(1000px) translate3d(0,0,0)}
-
-/* SERVICES — 3D card reveal: cards hinge up from their top edge out of depth, staggered by the
-   existing d1/d2, so the grid assembles itself instead of fading in as one block. */
-#services .svc-card.reveal{
-  transform:perspective(1100px) rotateX(10deg) translate3d(0,38px,-70px);
-  transform-origin:50% 0%;
-  transition-property:opacity,transform,border-color,background,box-shadow;
-  transition-duration:1s,1s,.3s,.3s,.5s;
-  transition-timing-function:var(--ease),var(--ease),ease,ease,var(--ease);
-}
-#services .svc-card.reveal.in{transform:perspective(1100px) rotateX(0deg) translate3d(0,0,0)}
-
-/* PROCESS — a vertical column beside the media, so the stages swing in on a Y hinge. */
-#process .stage-card.reveal{
-  transform:perspective(1200px) rotateY(-7deg) translate3d(-28px,22px,-55px);
-  transform-origin:0% 50%;
-  transition-property:opacity,transform,border-color,background,box-shadow;
-  transition-duration:1s,1s,.3s,.3s,.5s;
-  transition-timing-function:var(--ease),var(--ease),ease,ease,var(--ease);
-}
-#process .stage-card.reveal.in{transform:perspective(1200px) rotateY(0deg) translate3d(0,0,0)}
-
-/* ABOUT — the portrait settles forward out of depth while the copy rises, giving the two columns
-   a parallax-like offset without any scroll-linked math. */
-#about .about-photo.reveal{
-  transform:perspective(1200px) scale(1.05) translate3d(0,18px,-90px);
-  transition-property:opacity,transform;
-  transition-duration:1.15s;transition-timing-function:var(--ease);
-}
-#about .about-photo.reveal.in{transform:perspective(1200px) scale(1) translate3d(0,0,0)}
-#about .bio.reveal,#about .about-points.reveal,#about .about-actions.reveal{
-  transform:perspective(1000px) translate3d(0,30px,-40px);
-}
-#about .bio.reveal.in,#about .about-points.reveal.in,#about .about-actions.reveal.in{
-  transform:perspective(1000px) translate3d(0,0,0);
-}
-
-/* WORK — the tile grid pulls forward out of depth as one plane, echoing how the hero video
-   scales rather than slides. */
-#work .lf-grid.reveal{
-  transform:perspective(1300px) scale(.95) translate3d(0,20px,-100px);
-  transition-property:opacity,transform;
-  transition-duration:1.1s;transition-timing-function:var(--ease);
-}
-#work .lf-grid.reveal.in{transform:perspective(1300px) scale(1) translate3d(0,0,0)}
-
-/* SHORTS — portrait content, so it rises taller and closer, mirroring its framing. */
-#shorts .sf-stage.reveal,#shorts .sf-mobile.reveal{
-  transform:perspective(1200px) scale(.96) translate3d(0,42px,-80px);
-  transition-property:opacity,transform;
-  transition-duration:1.05s;transition-timing-function:var(--ease);
-}
-#shorts .sf-stage.reveal.in,#shorts .sf-mobile.reveal.in{
-  transform:perspective(1200px) scale(1) translate3d(0,0,0);
-}
-
-/* THUMBNAILS — this row already carries its own marquee motion, so the entry is the most
-   restrained on the site: a shallow tilt up from below, no scale, so it never fights the
-   movement already happening inside it. */
-#thumbnails .marquee.reveal{
-  transform:perspective(1400px) rotateX(6deg) translate3d(0,30px,-50px);
-  transform-origin:50% 100%;
-  transition-property:opacity,transform;
-  transition-duration:1.1s;transition-timing-function:var(--ease);
-}
-#thumbnails .marquee.reveal.in{
-  transform:perspective(1400px) rotateX(0deg) translate3d(0,0,0);
-}
-
-/* FAQ tags the whole list (not each row), so the hinge belongs on the list. */
-#faq .faq-list.reveal{
-  transform:perspective(1100px) rotateX(7deg) translate3d(0,26px,-50px);
-  transform-origin:50% 0%;
-  transition-property:opacity,transform;
-  transition-duration:1s;transition-timing-function:var(--ease);
-}
-#faq .faq-list.reveal.in{transform:perspective(1100px) rotateX(0deg) translate3d(0,0,0)}
-
-/* CONTACT — list rows, lightest touch. Its own rule omitted opacity from the transition, so the
-   items used to pop rather than fade; included explicitly here. */
-#contact .contact-item.reveal{
-  transform:perspective(1000px) rotateX(7deg) translate3d(0,22px,-40px);
-  transform-origin:50% 0%;
-  transition-property:opacity,transform,border-color,background,box-shadow;
-  transition-duration:.9s,.9s,.3s,.3s,.4s;
-  transition-timing-function:var(--ease),var(--ease),ease,ease,var(--ease);
-}
-#contact .contact-item.reveal.in{transform:perspective(1000px) rotateX(0deg) translate3d(0,0,0)}
-
-/* Section headers everywhere share one gesture, tying the varied section effects into a system. */
-.sec-head .reveal,.sec-head.reveal{transform:perspective(900px) translate3d(0,22px,-25px)}
-.sec-head .reveal.in,.sec-head.reveal.in{transform:perspective(900px) translate3d(0,0,0)}
-
-/* Reduced motion: the base .reveal resets in the RESPONSIVE block, but these rules are more
-   specific and would otherwise win, so every variant is neutralised explicitly. */
-@media (prefers-reduced-motion:reduce){
-  .reveal,.reveal.in,
-  #services .svc-card.reveal,#services .svc-card.reveal.in,
-  #process .stage-card.reveal,#process .stage-card.reveal.in,
-  #about .about-photo.reveal,#about .about-photo.reveal.in,
-  #about .bio.reveal,#about .about-points.reveal,#about .about-actions.reveal,
-  #about .bio.reveal.in,#about .about-points.reveal.in,#about .about-actions.reveal.in,
-  #work .lf-grid.reveal,#work .lf-grid.reveal.in,
-  #shorts .sf-stage.reveal,#shorts .sf-mobile.reveal,
-  #shorts .sf-stage.reveal.in,#shorts .sf-mobile.reveal.in,
-  #thumbnails .marquee.reveal,#thumbnails .marquee.reveal.in,
-  #faq .faq-list.reveal,#faq .faq-list.reveal.in,
-  #contact .contact-item.reveal,#contact .contact-item.reveal.in,
-  .sec-head .reveal,.sec-head.reveal,.sec-head .reveal.in,.sec-head.reveal.in{
-    opacity:1!important;transform:none!important;transition:none!important;
-  }
-}
-
-/* .svc-card and .contact-item each declare their own `transition` shorthand LATER in this file
-   than the .d1-.d5 helpers, so that shorthand's implicit delay:0s beat the stagger at equal
-   specificity (.stage-card and .lf-grid have no such shorthand, which is why they staggered
-   correctly and these two did not). Restated here at ID specificity.
-   The delay list is per-property: only opacity and transform are delayed, so hover colour
-   response stays immediate rather than lagging by up to a quarter second. */
-#services .svc-card.reveal.d1,#contact .contact-item.reveal.d1{transition-delay:.05s,.05s,0s,0s,0s}
-#services .svc-card.reveal.d2,#contact .contact-item.reveal.d2{transition-delay:.14s,.14s,0s,0s,0s}
-#services .svc-card.reveal.d3,#contact .contact-item.reveal.d3{transition-delay:.23s,.23s,0s,0s,0s}
 

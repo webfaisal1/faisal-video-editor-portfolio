@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import AtmosphericBackground from "@/components/providers/AtmosphericBackground";
+import CtaSpotlight from "@/components/providers/CtaSpotlight";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -23,6 +24,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <AtmosphericBackground />
+        <CtaSpotlight />
         {children}
         <div className="edge-accent" aria-hidden="true" />
         <div className="scroll-progress" aria-hidden="true">

@@ -57,7 +57,18 @@ export default function SmoothScroll({ children }: { children: React.ReactNode }
       atTopHandlers.push(() => removeEventListener("load", toTop));
     }
 
-    /* ---- global scroll-reveal (adds .in as elements enter) ---- */
+    /* ---- global scroll-reveal (adds .in as elements enter) ----
+       Each .reveal is observed on its own, but with the default root every element that happens to
+       be on screen when a section scrolls up crosses the threshold in the same frame, so a whole
+       section popped in as one block. The negative bottom rootMargin shrinks the observer's root
+       to the top ~78% of the viewport, which means an element only counts as "entered" once it has
+       actually travelled up into the reading area — cards further down the section keep waiting
+       until they individually reach that line, giving the one-at-a-time reveal.
+
+       revealAll() is the safety net that shrunk root requires: content sitting inside that bottom
+       22% when the page can scroll no further would otherwise never intersect and would stay
+       permanently invisible. Anything still hidden once we are at (or within a hair of) the very
+       bottom is revealed outright. */
     const io = new IntersectionObserver(
       (es) =>
         es.forEach((e) => {
@@ -66,9 +77,40 @@ export default function SmoothScroll({ children }: { children: React.ReactNode }
             io.unobserve(e.target);
           }
         }),
-      { threshold: 0.12 }
+      { threshold: 0.12, rootMargin: "0px 0px -22% 0px" }
     );
+
+    /* The markup puts .reveal on the LIST CONTAINER for these three, not on the cards inside it —
+       one observed element covering a whole grid/list, so its entire contents faded in together no
+       matter how the observer is tuned (the FAQ was the worst case: all seven questions on a single
+       .reveal). Hand the class down to the children so each card is observed, and therefore
+       revealed, on its own as it reaches the trigger line.
+
+       Only genuinely stacked lists are split. .sf-stage and .marquee are deliberately excluded:
+       their children are laid out horizontally and driven by their own GSAP/CSS animations, so
+       per-child reveals would both fight those animations and fire simultaneously anyway. */
+    [".lf-grid", ".faq-list", ".about-points"].forEach((sel) => {
+      document.querySelectorAll(`${sel}.reveal`).forEach((box) => {
+        box.classList.remove("reveal", "d1", "d2", "d3", "d4", "d5");
+        Array.from(box.children).forEach((child) => child.classList.add("reveal"));
+      });
+    });
+
     document.querySelectorAll(".reveal:not(.in)").forEach((el) => io.observe(el));
+
+    const revealAll = () => {
+      if (window.innerHeight + window.scrollY < document.documentElement.scrollHeight - 4) return;
+      document.querySelectorAll(".reveal:not(.in)").forEach((el) => {
+        el.classList.add("in");
+        io.unobserve(el);
+      });
+    };
+    window.addEventListener("scroll", revealAll, { passive: true });
+    window.addEventListener("resize", revealAll);
+    atTopHandlers.push(() => {
+      window.removeEventListener("scroll", revealAll);
+      window.removeEventListener("resize", revealAll);
+    });
 
     /* ---- marquee seamless-loop shift (Thumbnails row; generic over every .marquee) ----
        REAL root cause found by comparing against actual 25% zoom screenshots: each card is
