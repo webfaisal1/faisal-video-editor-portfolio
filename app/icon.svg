@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Video editing">
+  <!-- Favicon: a play triangle sliced by a diagonal cut, so it reads as "video" and "edit" at once.
+       Designed for 16px first: no sprocket holes, no scissors, no thin strokes, because none of
+       that survives at tab size. The silhouette is a solid triangle (instantly readable as video)
+       and the single wide diagonal gap is the only detail, so it still resolves when scaled down.
+       Colours are the site's own tokens: accent 2e6f52, accent-bright 3fa37a, surface 1a1a1a.
+       NOTE: no double hyphen may appear anywhere in this comment. That is invalid XML, and while
+       browsers tolerate it, strict parsers (the sharp/librsvg pipeline that renders apple-icon.png
+       from this file) reject the whole document outright. -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3fa37a"/>
+      <stop offset="1" stop-color="#2e6f52"/>
+    </linearGradient>
+    <!-- The cut. A thick black line in a mask punches the gap straight through the triangle;
+         masking rather than drawing two half triangles keeps both cut edges perfectly parallel. -->
+    <mask id="slice">
+      <rect width="64" height="64" fill="#fff"/>
+      <line x1="40" y1="4" x2="32" y2="60" stroke="#000" stroke-width="4.5" stroke-linecap="square"/>
+    </mask>
+  </defs>
+
+  <rect width="64" height="64" rx="14" fill="url(#tile)"/>
+  <!-- Top inner rim, the same trick the site's glass buttons use to suggest thickness. -->
+  <rect x="1.5" y="1.5" width="61" height="61" rx="12.5" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1.5"/>
+
+  <path d="M25 17.5 47.5 32 25 46.5 Z" fill="#fff" mask="url(#slice)"/>
+</svg>

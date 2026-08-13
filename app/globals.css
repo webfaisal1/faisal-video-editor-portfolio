@@ -204,12 +204,11 @@ img{max-width:100%;display:block}
 }
 body.cta-focus .cta-spotlight{opacity:1}
 
-/* Page CTAs (About's "Book A Call" and the contact form's submit): 3D glass slab that floats gently
-   up and down, matching the nav CTA's own glass+bounce treatment so all three read as one family.
-   ::before is the top-edge sheen that sells the glass; the layered shadows (outer drop + accent
-   bloom + inset top/bottom rims) are what give it thickness rather than looking like a flat pill. */
-.about-actions .btn-primary,
-.cform .btn-primary{
+/* About's "Book A Call": 3D glass slab that floats gently up and down, matching the nav CTA's own
+   glass+bounce treatment. ::before is the top-edge sheen that sells the glass; the layered shadows
+   (outer drop + accent bloom + inset top/bottom rims) are what give it thickness rather than
+   looking like a flat pill. */
+.about-actions .btn-primary{
   position:relative;overflow:hidden;
   background:linear-gradient(160deg,rgba(63,163,122,.94),rgba(46,111,82,.86));
   border:1px solid rgba(255,255,255,.18);
@@ -221,15 +220,13 @@ body.cta-focus .cta-spotlight{opacity:1}
     inset 0 -1px 0 rgba(0,0,0,.22);
   animation:cta-float 3.6s ease-in-out infinite;
 }
-.about-actions .btn-primary::before,
-.cform .btn-primary::before{
+.about-actions .btn-primary::before{
   content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
   background:linear-gradient(180deg,rgba(255,255,255,.24),rgba(255,255,255,0) 58%);
 }
 /* animation:none (not paused) so the hover transform below can actually take effect — a paused
    animation still holds its current transform and would outrank the hover rule. */
-.about-actions .btn-primary:hover,
-.cform .btn-primary:hover{
+.about-actions .btn-primary:hover{
   animation:none;transform:translateY(-4px) scale(1.03);
   box-shadow:
     0 16px 34px -10px rgba(0,0,0,.66),
@@ -237,9 +234,18 @@ body.cta-focus .cta-spotlight{opacity:1}
     inset 0 1px 0 rgba(255,255,255,.42),
     inset 0 -1px 0 rgba(0,0,0,.22);
 }
+
+/* The Contact section's Book a Call keeps its siblings' exact card styling (colour, border, icon
+   tile, hover) — it only gains the float. Nothing but `animation` is declared here so every other
+   property still cascades from .contact-item, and the :hover rule clears the animation outright so
+   .contact-item:hover's own lift can take over (a merely paused animation would keep holding its
+   current transform and outrank it). */
+.contact-item[href*="calendly.com"]{animation:cta-float 3.6s ease-in-out infinite}
+.contact-item[href*="calendly.com"]:hover{animation:none}
+
 @keyframes cta-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
 @media (prefers-reduced-motion:reduce){
-  .about-actions .btn-primary,.cform .btn-primary{animation:none}
+  .about-actions .btn-primary,.contact-item[href*="calendly.com"]{animation:none}
 }
 
 /* =========================================================
@@ -1045,6 +1051,33 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
 .lf-cover{position:absolute;inset:0;z-index:2;background-size:cover;background-position:center;
   background-repeat:no-repeat;opacity:1;transition:opacity .45s var(--ease);pointer-events:none}
 .lf-cover.is-hidden{opacity:0}
+/* PAUSED-STATE VEIL. The shield below stops hover-triggered chrome, but YouTube also paints its
+   title/avatar/share/wordmark whenever the player is PAUSED, and there is no embed parameter that
+   turns that off — so the paused player is simply covered instead.
+   z-index was 2.5, which is INVALID — the property takes an integer, so the whole declaration was
+   dropped and the veil fell back to z-index:auto, leaving it below .lf-cover (2). It is now 3,
+   matching .lf-shield; equal z-index falls back to DOM order, and the shield comes after this
+   element, so the shield still paints on top and clicking to resume keeps working.
+   The fade is fast (.16s) on purpose: YouTube paints its chrome the instant the player pauses, so
+   any slower and that chrome is plainly visible through the half-faded veil. */
+.lf-veil{position:absolute;inset:0;z-index:3;pointer-events:none;opacity:0;
+  transition:opacity .16s var(--ease);
+  background:radial-gradient(120% 120% at 50% 50%,rgba(6,10,8,.72),rgba(4,7,6,.94));}
+.lf-veil.is-on{opacity:1}
+/* Our own play glyph, so the paused state still reads as "click to resume" once YouTube's own
+   pause chrome is hidden underneath. */
+.lf-veil::after{
+  content:"";position:absolute;left:50%;top:50%;width:74px;height:74px;transform:translate(-50%,-50%);
+  border-radius:50%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.28);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  box-shadow:0 10px 30px -10px rgba(0,0,0,.7);
+}
+.lf-veil::before{
+  content:"";position:absolute;left:50%;top:50%;z-index:1;
+  transform:translate(-42%,-50%);
+  border-style:solid;border-width:13px 0 13px 21px;
+  border-color:transparent transparent transparent rgba(255,255,255,.92);
+}
 /* The reason no YouTube branding is visible. Its title/avatar/logo overlay is painted only on
    hover or pause, so this transparent layer swallows every pointer event before the iframe can
    see one. Play/pause is handed back through it via the postMessage player API (VideoPopup.tsx),

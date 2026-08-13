@@ -37,9 +37,17 @@ const YT_HOST = "https://www.youtube-nocookie.com/embed/";
 //   rel=0             end-cards stay on the same channel
 //   iv_load_policy=3  no annotation cards
 //   playsinline=1     iOS plays in place instead of hijacking to native fullscreen
+//   cc_load_policy=0  do not force captions on. This alone is not enough: YouTube's auto-generated
+//                     subtitles still burn in for viewers whose account/browser has captions
+//                     enabled by default, because that preference outranks the "don't force on"
+//                     hint. cc_lang_pref is what actually suppresses them — asking for a caption
+//                     track that does not exist leaves the player with nothing to display, so no
+//                     subtitles render regardless of the viewer's own setting.
+//   cc_lang_pref=zz   deliberately a non-existent language code (see above)
 // autoplay=1 is safe because the iframe only ever exists as the result of a real click.
 const YT_PARAMS =
-  "autoplay=1&controls=0&enablejsapi=1&disablekb=1&fs=0&rel=0&iv_load_policy=3&playsinline=1";
+  "autoplay=1&controls=0&enablejsapi=1&disablekb=1&fs=0&rel=0&iv_load_policy=3&playsinline=1" +
+  "&cc_load_policy=0&cc_lang_pref=zz";
 
 export default function VideoPopup() {
   const ref = useRef<HTMLDivElement>(null);
@@ -53,6 +61,7 @@ export default function VideoPopup() {
     const frameEl = document.getElementById("lfFrame") as HTMLIFrameElement;
     const coverEl = document.getElementById("lfCover") as HTMLElement | null;
     const shieldEl = document.getElementById("lfShield") as HTMLElement | null;
+    const veilEl = document.getElementById("lfVeil") as HTMLElement | null;
     const closeBtn = document.getElementById("lfClose")!;
     if (!overlay || !modal || !frameEl) return;
     const hasGsap = true;
@@ -71,11 +80,93 @@ export default function VideoPopup() {
      * in their ~80KB library to call two functions would be a poor trade, and it also injects its
      * own globals.
      */
-    function ytCommand(func: "playVideo" | "pauseVideo") {
+    function ytCommand(func: string, args: unknown[] = []) {
       frameEl.contentWindow?.postMessage(
-        JSON.stringify({ event: "command", func, args: [] }),
+        JSON.stringify({ event: "command", func, args }),
         "*"
       );
+    }
+
+    /**
+     * Force auto-captions off.
+     *
+     * The URL parameters are not sufficient on their own: cc_load_policy=0 is only a "do not turn
+     * captions ON" hint, and a viewer whose YouTube account or browser has captions enabled by
+     * default overrides it — which is exactly the case that kept burning subtitles in. Unloading
+     * the captions module removes the player's ability to render them at all, so the viewer's own
+     * preference has nothing left to act on.
+     *
+     * Sent as a repeated burst rather than once because we deliberately do not load YouTube's
+     * IFrame API script (see ytCommand), so there is no onReady callback to hook — the player
+     * silently ignores commands sent before it starts listening. Re-firing across the boot window
+     * guarantees at least one lands. 'cc' is the HTML5 player's module name and 'captions' the
+     * legacy one; an unknown module name is ignored, so sending both is free insurance.
+     */
+    let ccTimer: number | null = null;
+    function stopCaptions() {
+      if (ccTimer !== null) clearInterval(ccTimer);
+      let tries = 0;
+      const fire = () => {
+        ytCommand("unloadModule", ["cc"]);
+        ytCommand("unloadModule", ["captions"]);
+        ytCommand("setOption", ["captions", "track", {}]);
+        // Subscribe to the player's own state events (see onPlayerMessage). Piggy-backs on this
+        // same retry burst because it has the identical problem: sent too early, it is ignored.
+        frameEl.contentWindow?.postMessage(
+          JSON.stringify({ event: "listening", id: 1, channel: "widget" }),
+          "*"
+        );
+        if (++tries >= 16 && ccTimer !== null) {
+          clearInterval(ccTimer);
+          ccTimer = null;
+        }
+      };
+      fire();
+      ccTimer = window.setInterval(fire, 350);
+    }
+
+    /**
+     * Drive the paused-state veil off the player's REAL state rather than our own click handler.
+     *
+     * onShield below flips a local isPlaying boolean, which only knows about pauses the viewer
+     * triggers through our shield. YouTube pauses on its own too — when the video ends, when
+     * autoplay is refused, when the tab is backgrounded — and in every one of those cases the local
+     * boolean still said "playing", so the veil stayed off and the title/avatar/share/wordmark
+     * chrome sat there in the open. Listening to onStateChange closes that gap: whatever causes the
+     * pause, the veil follows.
+     */
+    const onPlayerMessage = (e: MessageEvent) => {
+      if (!isOpen || e.source !== frameEl.contentWindow) return;
+      let data: { event?: string; info?: unknown };
+      try {
+        data = typeof e.data === "string" ? JSON.parse(e.data) : e.data;
+      } catch {
+        return;
+      }
+      if (!data || data.event !== "onStateChange") return;
+      const info = data.info;
+      const state =
+        typeof info === "number"
+          ? info
+          : typeof (info as { playerState?: number })?.playerState === "number"
+            ? (info as { playerState: number }).playerState
+            : null;
+      if (state === null) return;
+      // 3 = buffering: a transient blip during normal playback that paints no chrome, so leaving
+      // the veil untouched avoids it flashing on mid-video.
+      if (state === 3) return;
+      // 1 = playing. Every other state (-1 unstarted, 0 ended, 2 paused, 5 cued) paints chrome.
+      const playing = state === 1;
+      isPlaying = playing;
+      veilEl?.classList.toggle("is-on", !playing);
+      if (playing) coverEl?.classList.add("is-hidden");
+    };
+    window.addEventListener("message", onPlayerMessage);
+    function stopCaptionRetries() {
+      if (ccTimer !== null) {
+        clearInterval(ccTimer);
+        ccTimer = null;
+      }
     }
 
     function targetRect() {
@@ -123,6 +214,7 @@ export default function VideoPopup() {
       if (originEl) originEl.classList.add("is-active");
       activeAspect = typeof aspect === "number" ? aspect : parseAspect(aspect);
       isPlaying = true;
+      veilEl?.classList.remove("is-on");
 
       // Hold the originating card's own poster over the player while it boots. YouTube paints its
       // title for roughly a second before auto-hiding it, and that one is not hover-triggered so
@@ -147,6 +239,7 @@ export default function VideoPopup() {
       overlay.classList.add("open");
 
       frameEl.src = YT_HOST + encodeURIComponent(ytId) + "?" + YT_PARAMS;
+      stopCaptions();
 
       applyRect(targetRect(), true);
 
@@ -161,6 +254,10 @@ export default function VideoPopup() {
       // Silence immediately rather than waiting out the 450ms close tween — the src is not cleared
       // until finishClose, so without this the audio keeps playing over the closing animation.
       ytCommand("pauseVideo");
+      stopCaptionRetries();
+      // The player is paused on the way out, so drop the veil with it rather than leaving it lit
+      // behind the closing modal (and ready to flash on the next open).
+      veilEl?.classList.remove("is-on");
       if (coverTimer !== null) {
         clearTimeout(coverTimer);
         coverTimer = null;
@@ -257,6 +354,9 @@ export default function VideoPopup() {
       if (!isOpen) return;
       isPlaying = !isPlaying;
       ytCommand(isPlaying ? "playVideo" : "pauseVideo");
+      // Cover the player whenever it is paused — that is precisely when YouTube paints its
+      // title/avatar/share/wordmark chrome, which no embed parameter can turn off.
+      veilEl?.classList.toggle("is-on", !isPlaying);
       // Keep the poster from reappearing over a video the viewer just un-paused.
       if (coverEl) coverEl.classList.add("is-hidden");
     };
@@ -281,6 +381,8 @@ export default function VideoPopup() {
       shieldEl?.removeEventListener("click", onShield);
       shieldEl?.removeEventListener("keydown", onShieldKey);
       if (coverTimer !== null) clearTimeout(coverTimer);
+      stopCaptionRetries();
+      window.removeEventListener("message", onPlayerMessage);
       removeEventListener("resize", onResize);
       if (window.__openVideoPopup === openSource) window.__openVideoPopup = undefined;
     };

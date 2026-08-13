@@ -18,6 +18,11 @@
 //   .lf-cover   the card's own poster image, shown on top while the player boots and faded out
 //               once it is running. This covers the one moment the shield cannot: the ~1s at
 //               startup where YouTube shows the title before it auto-hides.
+//   .lf-veil    the PAUSED state. Blocking hover is not enough: YouTube also paints the title,
+//               avatar, share button and wordmark whenever the player is paused, and no embed
+//               parameter suppresses that. This layer covers the whole player while paused (and
+//               carries our own play glyph), so that chrome is never on screen. It sits above the
+//               iframe but below .lf-shield, so a click still reaches the shield and resumes.
 //
 // The iframe carries no src until a card is clicked, so no YouTube request (and no cookie) is made
 // on page load.
@@ -25,5 +30,5 @@
 // higher z-index than .lf-shield (5 vs 3) which alone should be enough, but painting order is the
 // tie-breaker at equal z-index and the shield deliberately covers the entire modal — putting the
 // button last means it wins on BOTH axes, so a click on ✕ can never be swallowed by the shield.
-const html = "<div class=\"lf-overlay\" id=\"lfOverlay\" aria-hidden=\"true\">\n  <div class=\"lf-backdrop\" id=\"lfBackdrop\"></div>\n  <div class=\"lf-modal\" id=\"lfModal\">\n    <div class=\"lf-frame-wrap\">\n      <iframe id=\"lfFrame\" title=\"Video player\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" referrerpolicy=\"strict-origin-when-cross-origin\" allowfullscreen></iframe>\n      <div class=\"lf-cover\" id=\"lfCover\"></div>\n      <div class=\"lf-shield\" id=\"lfShield\" role=\"button\" tabindex=\"0\" aria-label=\"Play or pause\"></div>\n    </div>\n    <button type=\"button\" class=\"lf-close\" id=\"lfClose\" aria-label=\"Close video\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\"><path d=\"M6 6l12 12M18 6L6 18\"/></svg></button>\n  </div>\n</div>";
+const html = "<div class=\"lf-overlay\" id=\"lfOverlay\" aria-hidden=\"true\">\n  <div class=\"lf-backdrop\" id=\"lfBackdrop\"></div>\n  <div class=\"lf-modal\" id=\"lfModal\">\n    <div class=\"lf-frame-wrap\">\n      <iframe id=\"lfFrame\" title=\"Video player\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" referrerpolicy=\"strict-origin-when-cross-origin\" allowfullscreen></iframe>\n      <div class=\"lf-cover\" id=\"lfCover\"></div>\n      <div class=\"lf-veil\" id=\"lfVeil\" aria-hidden=\"true\"></div>\n      <div class=\"lf-shield\" id=\"lfShield\" role=\"button\" tabindex=\"0\" aria-label=\"Play or pause\"></div>\n    </div>\n    <button type=\"button\" class=\"lf-close\" id=\"lfClose\" aria-label=\"Close video\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\"><path d=\"M6 6l12 12M18 6L6 18\"/></svg></button>\n  </div>\n</div>";
 export default html;

@@ -54,7 +54,7 @@ const html = `<footer class="footer">
 
     <div class="footer-bottom">
       <span class="footer-copy">All Rights Reserved | Mohammad Faisal <span id="footYear">2026</span></span>
-      <span class="footer-tagline">Crafted with care.</span>
+      <span class="footer-tagline">Crafted with care for real estate creators</span>
     </div>
   </div>
 </footer>

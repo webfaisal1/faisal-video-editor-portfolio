@@ -2,8 +2,13 @@
 
 import { useEffect } from "react";
 
-// Site-wide "spotlight" for the Book a Call CTAs: hovering any .btn-primary darkens the whole
-// page except a soft circular hole around that button, so the eye is pulled straight to it.
+// Site-wide "spotlight" for the Book a Call CTAs: hovering one darkens the whole page except a soft
+// circular hole around it, so the eye is pulled straight to it.
+//
+// Matched by Calendly href rather than by .btn-primary. Every Book a Call entry point (nav, mobile
+// menu, About, and the Contact section's card) is an anchor to Calendly, while the contact form's
+// "Send Message" submit is also a .btn-primary but is a different action — keying off the class
+// caught that button and missed the Contact section's actual Book a Call card entirely.
 //
 // Why a radial-gradient hole driven by CSS vars rather than the obvious "dim overlay + raise the
 // hovered button above it with z-index": several CTAs live inside elements that carry a transform
@@ -25,6 +30,7 @@ export default function CtaSpotlight() {
     overlay.setAttribute("aria-hidden", "true");
     document.body.appendChild(overlay);
 
+    const CTA = 'a[href*="calendly.com"]';
     let active: HTMLElement | null = null;
 
     const place = (el: HTMLElement) => {
@@ -43,7 +49,7 @@ export default function CtaSpotlight() {
     };
 
     const onOver = (e: Event) => {
-      const el = (e.target as Element | null)?.closest<HTMLElement>(".btn-primary");
+      const el = (e.target as Element | null)?.closest<HTMLElement>(CTA);
       if (!el) return;
       active = el;
       place(el);
@@ -51,7 +57,7 @@ export default function CtaSpotlight() {
     };
 
     const onOut = (e: Event) => {
-      const el = (e.target as Element | null)?.closest<HTMLElement>(".btn-primary");
+      const el = (e.target as Element | null)?.closest<HTMLElement>(CTA);
       if (el && el === active) clear();
     };
 
