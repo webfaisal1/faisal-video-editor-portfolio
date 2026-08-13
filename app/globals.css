@@ -374,10 +374,11 @@ body.cta-focus .cta-spotlight{opacity:1}
   .nav-inner{justify-content:flex-start}
   .burger{display:flex}
   /* RESPONSIVE FIX: touch target was 40x32px (padding 8px around three 24x2px bars), a bit
-     tight to tap comfortably. Bumped padding so the tappable box grows to roughly 48x42px;
-     the visible bars themselves are unchanged so the icon doesn't look bigger, just easier
-     to hit. Desktop untouched (burger isn't shown above 860px anyway). */
-  .burger{padding:12px;gap:6px}
+     tight to tap comfortably. Padding grew the box to 48x42px, still 2px under the 44px
+     comfortable-tap floor on the vertical axis, so a min-height pins it there outright; the
+     visible bars are unchanged so the icon does not look bigger, only easier to hit.
+     Desktop untouched (burger isn't shown above 860px anyway). */
+  .burger{padding:12px;gap:6px;min-width:48px;min-height:48px;justify-content:center}
 }
 @media (prefers-reduced-motion:reduce){
   *{animation:none!important;scroll-behavior:auto!important}
@@ -957,8 +958,15 @@ body.no-motion .dock-wrap{height:100svh}
 .about-sec{position:relative;padding:clamp(56px,7vw,96px) 0;background-color:transparent;overflow:hidden}
 .about-grid{position:relative;z-index:1;display:grid;grid-template-columns:1fr 1fr;gap:clamp(36px,6vw,80px);align-items:center}
 
-/* --- left: transparent cutout, no card/background box — sits directly on the page --- */
-.about-photo{position:relative;display:flex;align-items:flex-end;justify-content:center;min-height:520px}
+/* --- left: transparent cutout, no card/background box — sits directly on the page ---
+   min-width:0 is load-bearing, not defensive boilerplate. Grid items default to min-width:auto,
+   i.e. they refuse to shrink below their min-content width. This item's min-content is set by the
+   image below: max-height:640px against the photo's 1024x1536 aspect ratio implies a ~427px wide
+   minimum, so the single-column "1fr" track on phones resolved to 420px inside a ~308px content
+   box — the photo AND the copy column both overhung the screen on every phone under ~472px wide.
+   Allowing the item to shrink lets 1fr mean what it says. */
+.about-photo{position:relative;min-width:0;display:flex;align-items:flex-end;justify-content:center;
+  min-height:520px}
 .about-photo .cutout{position:relative;z-index:2;width:100%;height:auto;max-height:640px;object-fit:contain;
   filter:drop-shadow(0 30px 50px rgba(0,0,0,.55));}
 .about-photo .grain{display:none}
@@ -985,7 +993,16 @@ body.no-motion .dock-wrap{height:100svh}
 
 @media (max-width:900px){
   .about-grid{grid-template-columns:1fr;gap:44px}
-  .about-photo{max-width:420px;margin:0 auto;aspect-ratio:1/1.05}
+  /* aspect-ratio:1/1.05 is gone: it sized the old framed photo CARD, which no longer exists now
+     that the cutout sits directly on the page, and combined with min-height it just forced dead
+     space under the subject. The photo is now driven purely by its own height cap. */
+  .about-photo{max-width:420px;margin:0 auto;min-height:0}
+  .about-copy{min-width:0}
+}
+/* Phones: cap by viewport height rather than a fixed 640px so the portrait never eats the whole
+   screen on a short device, and never gets so tall that the copy below it starts off-screen. */
+@media (max-width:560px){
+  .about-photo .cutout{max-height:min(56vh,420px)}
 }
 
 /* =========================================================
@@ -1413,6 +1430,20 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
 .field textarea{resize:vertical;min-height:120px}
 .cform .btn{margin-top:6px;align-self:center}
 .cform-note{font-size:12.5px;color:var(--muted-2);margin-top:2px;text-align:center}
+/* Touch sizing for the form. font-size:16px is not a style choice: iOS Safari auto-zooms the page
+   whenever a focused input's text is under 16px, which yanks the layout sideways mid-typing and is
+   one of the most common "the site is broken on my iPhone" reports. The 15px above is under that
+   threshold, so it is raised on phones only. min-height lifts each control to the comfortable-tap
+   floor (they measured 40-42px).
+   This block MUST stay below the base .field rules: it has the same specificity (0,1,1), so when it
+   sat earlier in the file the plain rules above simply overrode it and only min-height (which the
+   base rules never set on inputs) appeared to work. */
+@media (max-width:600px), (pointer:coarse){
+  .field input,.field textarea{font-size:16px;min-height:48px;padding:13px 15px}
+  .field textarea{min-height:132px}
+  .cform .btn{min-height:48px}
+}
+@media (max-width:600px){.cform .btn{width:100%}}
 
 /* FIX 10: .cal-card / .cal-embed rules removed with the Book a Call section. */
 
@@ -1455,12 +1486,29 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
    LinkedIn/X/YouTube row, takes over the large gap before the headline that .footer-top used
    to carry on its own, so total spacing above "Ready When You Are." stays close to before. */
 .footer-icons-secondary{flex-wrap:wrap;margin-bottom:clamp(56px,10vw,110px)}
-/* RESPONSIVE FIX: 30x30px buttons are a bit small to tap comfortably; bumped to 38x38px on
-   phones only (desktop's deliberately small/delicate icon row is untouched). */
-@media (max-width:600px){
-  .footer-icons a{width:38px;height:38px}
-  .footer-icons svg{width:17px;height:17px}
-  .footer-icons svg.ic-whatsapp{width:15px;height:15px}
+/* The brand wordmark and the "for queries" email are inline text links, so their hit box is only
+   as tall as the text (24px and 20px measured). Padding is added on phones to bring the tappable
+   area up without changing how either one looks; the negative margin keeps surrounding layout
+   spacing identical to before. */
+@media (max-width:600px), (pointer:coarse){
+  .footer-brand-mark,.footer-queries-email{padding:12px 0;margin:-12px 0}
+  .footer-queries{flex-wrap:wrap}
+  .footer-queries-email{word-break:break-word}
+}
+/* RESPONSIVE FIX: 30x30px buttons are a bit small to tap comfortably; bumped to 44x44px on
+   phones only (desktop's deliberately small/delicate icon row is untouched). 44px is the minimum
+   comfortable touch target in both the Apple and WCAG guidance — 38px, the previous value here,
+   still sat under it. The glyph inside stays small; only the tappable box grows. */
+/* `(pointer:coarse)` rides along with the width query on every touch-sizing block in this file.
+   Width alone was wrong: a tablet in portrait is ~768-1024px, so it fell outside a phone-width
+   query and kept the 30px icons and sub-44px hit boxes even though it is a finger-driven device.
+   The pointer query is what actually asks "is this being touched", and the width term stays so a
+   narrow mouse-driven window still gets the roomier layout. */
+@media (max-width:600px), (pointer:coarse){
+  .footer-icons{gap:10px}
+  .footer-icons a{width:44px;height:44px}
+  .footer-icons svg{width:18px;height:18px}
+  .footer-icons svg.ic-whatsapp{width:16px;height:16px}
 }
 
 /* Single-line size: the headline text has no forced <br/> (a hardcoded break, not font-size,
