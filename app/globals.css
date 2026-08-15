@@ -163,11 +163,17 @@ img{max-width:100%;display:block}
 .cta-spotlight{
   position:fixed;inset:0;z-index:600;pointer-events:none;opacity:0;
   transition:opacity .35s var(--ease);
-  background:radial-gradient(circle at var(--spot-x,50%) var(--spot-y,50%),
-    rgba(6,18,13,0) 0,
-    rgba(6,18,13,0) var(--spot-r,0px),
-    rgba(6,18,13,.55) calc(var(--spot-r,0px) + 70px),
-    rgba(6,18,13,.84) calc(var(--spot-r,0px) + 190px));
+  /* Stops are percentages of the ellipse radii, so the clear area tracks the button's own size:
+     fully clear out to 86% of the box, then a short ramp that is already near-solid one radius out.
+     Percentages above 100% are valid on a radial gradient and are what let the falloff finish just
+     outside the button rather than hundreds of pixels away, which is what previously left the area
+     around the CTA visible. */
+  background:radial-gradient(ellipse var(--spot-rx,0px) var(--spot-ry,0px)
+      at var(--spot-x,50%) var(--spot-y,50%),
+    rgba(4,11,8,0) 0%,
+    rgba(4,11,8,0) 86%,
+    rgba(4,11,8,.6) 108%,
+    rgba(4,11,8,.94) 165%);
 }
 body.cta-focus .cta-spotlight{opacity:1}
 
@@ -1498,3 +1504,64 @@ html.lf-lock,html.lf-lock body{overflow:hidden}
 .footer-copy{color:var(--muted-2);font-size:13px}
 .footer-tagline{color:var(--muted-2);font-size:13px}
 
+
+/* =========================================================
+   PREMIUM GLASS EDGES
+   ========================================================= */
+/* A flat 1px border is the same brightness the whole way round, which is what made the cards and
+   chips read as "drawn boxes". Real glass catches light along its top edge, loses it through the
+   middle, and picks up a faint bounce along the bottom — that gradient is what the Apple-style
+   surfaces are actually doing, and it is the single biggest difference between a flat card and one
+   that looks lit.
+
+   Technique: a 1px-padded overlay whose background is the gradient, masked so only the padding ring
+   survives (the content-box is punched out by compositing the two masks with exclude/xor). That
+   gives a true gradient BORDER, which `border-color` alone cannot express — a border takes one flat
+   colour, not a gradient.
+
+   Notes on the selector list:
+   - The host must be position:relative with its own border-radius; `inherit` keeps corners matched.
+   - inset:0 places the ring just inside the existing hairline border, so the two read together as
+     glass thickness rather than as a doubled outline. No layout changes, nothing shifts.
+   - .lf-tile uses ::before because its ::after is already the hover scrim.
+   - Form inputs are deliberately absent: ::before/::after do not render on replaced elements, so
+     they keep the plain hairline.
+   - .faq-item is absent too — it is a divider row, not a panel; a ring around it would invent a box
+     that is not part of the design. */
+.eyebrow::after,
+.btn::after,
+.nav-links a::after,
+.stage-card::after,
+.svc-card::after,
+.thumb-card::after,
+.contact-item::after,
+.lf-tile::before{
+  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:4;
+  padding:1px;
+  background:linear-gradient(180deg,
+    rgba(255,255,255,.26) 0%,
+    rgba(255,255,255,.08) 26%,
+    rgba(255,255,255,.02) 52%,
+    rgba(255,255,255,.11) 100%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;
+  mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  mask-composite:exclude;
+}
+/* These two are inline-flex chrome that was never positioned; the ring needs a containing block. */
+.eyebrow{position:relative}
+.btn{position:relative}
+/* Hover lifts the top highlight rather than changing the border colour, so the edge brightens the
+   way a real surface tilting into the light would. */
+.stage-card:hover::after,
+.svc-card:hover::after,
+.contact-item:hover::after,
+.thumb-card:hover::after,
+.btn:hover::after,
+.nav-links a:hover::after{
+  background:linear-gradient(180deg,
+    rgba(255,255,255,.42) 0%,
+    rgba(255,255,255,.14) 26%,
+    rgba(255,255,255,.04) 52%,
+    rgba(255,255,255,.16) 100%);
+}

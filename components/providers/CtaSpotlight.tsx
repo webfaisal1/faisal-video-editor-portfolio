@@ -35,12 +35,15 @@ export default function CtaSpotlight() {
 
     const place = (el: HTMLElement) => {
       const r = el.getBoundingClientRect();
-      // Radius that comfortably clears the button plus its glow, from its own centre.
-      const radius = Math.hypot(r.width, r.height) / 2 + 26;
       const s = document.body.style;
       s.setProperty("--spot-x", `${r.left + r.width / 2}px`);
       s.setProperty("--spot-y", `${r.top + r.height / 2}px`);
-      s.setProperty("--spot-r", `${radius}px`);
+      // An ELLIPSE matched to the button's own box, not a circle. A circle has to use the box's
+      // half-diagonal as its radius to contain a wide button, which on a typical 150x48 CTA meant a
+      // ~104px radius — more than twice the button's height, so a wide ring of the page around it
+      // stayed lit. Separate x/y radii hug the actual shape, so only the button clears the dim.
+      s.setProperty("--spot-rx", `${r.width / 2 + 12}px`);
+      s.setProperty("--spot-ry", `${r.height / 2 + 10}px`);
     };
 
     const clear = () => {
